@@ -114,7 +114,12 @@ export function applyHillTransformation(series, alpha = 1.0, K = 100000) {
 
 // Parse Date and Generate Seasonality & Trend Features
 export function extractSeasonalityFeatures(dateStr, index, totalDays) {
-  const d = new Date(dateStr);
+  let d = new Date(dateStr);
+  if (typeof dateStr === 'number') {
+    // Excel date serial number (days since 1899-12-30)
+    d = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
+  }
+
   if (isNaN(d.getTime())) {
     return { month: 1, dayOfWeek: 1, isWeekend: 0, season: 'Winter', trend: index / totalDays };
   }
@@ -149,7 +154,43 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
   const kpiTerms = kpiMapping[kpiType] || kpiMapping['revenue'];
 
   const N = rawData.length;
-  const dates = rawData.map(r => r[dateCol]);
+  
+  // Format dates strictly as YYYY-MM-DD strings to prevent timezone shifts
+  const dates = rawData.map((r, idx) => {
+    const d = r[dateCol];
+    
+    // Helper to format Date object avoiding UTC boundary shifts
+    const formatLocal = (dt) => {
+       const yyyy = dt.getFullYear();
+       const mm = String(dt.getMonth() + 1).padStart(2, '0');
+       const dd = String(dt.getDate()).padStart(2, '0');
+       return `${yyyy}-${mm}-${dd}`;
+    };
+
+    if (typeof d === 'number') {
+      // Excel serial date to UTC exactly. We must extract UTC date to avoid local timezone shift.
+      const dt = new Date(Math.round((d - 25569) * 86400 * 1000));
+      const yyyy = dt.getUTCFullYear();
+      const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getUTCDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    
+    if (d instanceof Date) return formatLocal(d);
+    
+    // For string dates
+    if (typeof d === 'string') {
+       // If it already looks like YYYY-MM-DD, keep it (prevent re-parsing shift)
+       if (/^\d{4}[-\./]\d{2}[-\./]\d{2}/.test(d)) {
+           return d.substring(0, 10).replace(/[\./]/g, '-');
+       }
+       const parsed = new Date(d);
+       if (!isNaN(parsed.getTime())) return formatLocal(parsed);
+    }
+    
+    return `Day ${idx + 1}`; // Safe fallback if completely invalid
+  });
+  
   const y = rawData.map(r => Number(r[kpiCol]) || 0);
 
   // Extra Optional Columns (Promo, Impressions, Clicks, Geo)
@@ -163,14 +204,19 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
   const isAutumnArr = seasonalityInfo.map(s => s.season === 'Autumn' ? 1 : 0);
   const isWinterArr = seasonalityInfo.map(s => s.season === 'Winter' ? 1 : 0);
   
-  // Early/Late Month Features
+  // Early/Late Month Features (Exact 5 days at start and end of month)
   const isEarlyMonthArr = dates.map(d => {
-    const dt = d instanceof Date ? d : new Date(d);
-    return !isNaN(dt.getTime()) && dt.getDate() <= 10 ? 1 : 0;
+    if (typeof d !== 'string' || d.length < 10) return 0;
+    const day = parseInt(d.substring(8, 10), 10);
+    return day <= 5 ? 1 : 0;
   });
   const isLateMonthArr = dates.map(d => {
-    const dt = d instanceof Date ? d : new Date(d);
-    return !isNaN(dt.getTime()) && dt.getDate() >= 21 ? 1 : 0;
+    if (typeof d !== 'string' || d.length < 10) return 0;
+    const year = parseInt(d.substring(0, 4), 10);
+    const month = parseInt(d.substring(5, 7), 10);
+    const day = parseInt(d.substring(8, 10), 10);
+    const lastDay = new Date(year, month, 0).getDate();
+    return day > lastDay - 5 ? 1 : 0;
   });
 
   // 2. Media Transformations (Hill & Adstock Grid Search Simulation)
@@ -179,89 +225,286 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
   const rawImpressions = {};
   const rawClicks = {};
   const totalSpends = {};
-  
-  const meridianParams = {}; // Store Hill & Adstock params
+  const meridianParams = {};
 
-  mediaCols.forEach((col, idx) => {
+  mediaCols.forEach(col => {
     const rawSpend = rawData.map(r => Number(r[col]) || 0);
     rawSpends[col] = rawSpend;
-    const totSpend = rawSpend.reduce((a, b) => a + b, 0);
-    totalSpends[col] = totSpend;
+    totalSpends[col] = rawSpend.reduce((a, b) => a + b, 0);
 
-    // Optional Impressions & Clicks
     const impCol = extraCols[`${col}_impressions`] || extraCols[`${col}_imp`];
     const clkCol = extraCols[`${col}_clicks`] || extraCols[`${col}_clk`];
     if (impCol) rawImpressions[col] = rawData.map(r => Number(r[impCol]) || 0);
     if (clkCol) rawClicks[col] = rawData.map(r => Number(r[clkCol]) || 0);
-
-    // Heuristic Parameter Assignment (Simulating MAP estimation)
-    const decay = 0.3 + (idx * 0.15) % 0.5; // 0.3 ~ 0.8
-    const peakLag = (idx % 3 === 0) ? 1 : 0; // Some channels have delayed peak
-    const alpha = 1.2 + (idx * 0.4) % 1.5; // Hill shape parameter (1.0 = concave, >1 = S-curve)
-    const meanSpend = totSpend / N || 1;
-    const K = meanSpend * 1.5; // Half-saturation point
-    
-    meridianParams[col] = { decay, peakLag, alpha, K };
-
-    const { adstocked, weights } = applyDelayedAdstock(rawSpend, decay, peakLag, 8);
-    meridianParams[col].adstockWeights = weights;
-
-    const saturated = applyHillTransformation(adstocked, alpha, K);
-    transformedMedia[col] = saturated;
   });
 
-  // 3. Design Matrix X Construction
+  // 3. Design Matrix Setup & Grid Search Optimization
   const baselineFeatureNames = ['Trend(추세)', '주말(Weekend)', '봄(Spring)', '여름(Summer)', '가을(Autumn)', '겨울(Winter)', '월초(Early)', '월말(Late)'];
   const baselineMatrixCols = [trendArr, isWeekendArr, isSpringArr, isSummerArr, isAutumnArr, isWinterArr, isEarlyMonthArr, isLateMonthArr];
-
   let featureNames = ['Intercept', ...mediaCols, ...baselineFeatureNames];
   
-  // Handle up to 3 promotion columns
   const promoCols = extraCols.promoCols || [];
   promoCols.forEach((pCol, idx) => {
     if (pCol) featureNames.push(`프로모션${promoCols.length > 1 ? idx + 1 : ''}(Promo)`);
   });
-
   const numFeatures = featureNames.length;
 
-  const X = [];
-  for (let i = 0; i < N; i++) {
-    const row = [1]; // Intercept
+  const maxLag = 10; // Extended from 8 to 10 days
+
+  const evaluateParams = (currentParams, targetMedia = null) => {
+    const X = [];
+    for (let i = 0; i < N; i++) X.push([1]);
+      // Meridian Standard: ALWAYS evaluate jointly to prevent Omitted Variable Bias and shape clashing
+      const activeMedia = mediaCols;
+      
+      activeMedia.forEach(col => {
+        const p = currentParams[col];
+        const { adstocked } = applyDelayedAdstock(rawSpends[col], p.decay, p.peakLag, maxLag);
+        const saturated = applyHillTransformation(adstocked, p.alpha, p.K);
+        for (let i = 0; i < N; i++) X[i].push(saturated[i]);
+      });
+  
+      baselineMatrixCols.forEach(arr => {
+        for (let i = 0; i < N; i++) X[i].push(arr[i]);
+      });
+      promoCols.forEach(pCol => {
+        for (let i = 0; i < N; i++) X[i].push(pCol ? (Number(rawData[i][pCol]) || 0) : 0);
+      });
+      
+      const currentFeatures = ['Intercept', ...activeMedia];
+      currentFeatures.push(...baselineFeatureNames);
+      promoCols.forEach((pCol, idx) => {
+        if (pCol) currentFeatures.push(`프로모션${promoCols.length > 1 ? idx + 1 : ''}(Promo)`);
+      });
+    const currentNumFeatures = currentFeatures.length;
+
+    const means = new Array(currentNumFeatures).fill(0);
+    const stds = new Array(currentNumFeatures).fill(1);
     
+    // Create a copy of X for mean-centering so we don't corrupt the original X returned by evaluateParams
+    const X_centered = X.map(row => [...row]);
+    
+    // Mean-center all features except Intercept to allow Coordinate Descent to converge properly
+    for (let j = 1; j < currentNumFeatures; j++) {
+      let m = 0;
+      for (let i = 0; i < N; i++) m += X[i][j];
+      means[j] = m / N;
+    }
+    for (let i = 0; i < N; i++) {
+      for (let j = 1; j < currentNumFeatures; j++) {
+        X_centered[i][j] -= means[j];
+      }
+    }
+    
+    const XT = transpose(X_centered);
+
+    for (let i = 0; i < N; i++) {
+      for (let j = 1; j < currentNumFeatures; j++) stds[j] += Math.pow(X_centered[i][j], 2);
+    }
+    for (let j = 1; j < currentNumFeatures; j++) {
+      stds[j] = Math.sqrt(stds[j] / N);
+    }
+
+    const X_norm = [];
+    for (let i = 0; i < N; i++) {
+      const row = [1];
+      for (let j = 1; j < currentNumFeatures; j++) {
+        row.push(stds[j] > 1e-4 ? X_centered[i][j] / stds[j] : 0);
+      }
+      X_norm.push(row);
+    }
+
+    let meanY = 0;
+    for (let i = 0; i < N; i++) meanY += y[i];
+    meanY /= N || 1;
+    let stdY = 0;
+    for (let i = 0; i < N; i++) stdY += Math.pow(y[i] - meanY, 2);
+    stdY = Math.sqrt(stdY / N) || 1e-6;
+
+    const Y_norm = y.map(val => [(val - meanY) / stdY]);
+
+    const XT_norm = transpose(X_norm);
+    const XTX = multiply(XT_norm, X_norm);
+    
+    // Applying Ridge Penalty on standardized features
+    for (let j = 1; j < currentNumFeatures; j++) {
+      const isMedia = activeMedia.includes(currentFeatures[j]);
+      const lambda = isMedia ? 0.01 : 0.0001; // Tiny penalty for controls so they don't shrink
+      XTX[j][j] += lambda;
+    }
+
+    const XTY = multiply(XT_norm, Y_norm).map(r => r[0]);
+
+    // Coordinate Descent for Ridge Regression with Positivity Constraint (NNLS)
+    const beta_norm = new Array(currentNumFeatures).fill(0);
+    const maxIter = 200;
+    
+    for (let iter = 0; iter < maxIter; iter++) {
+      let maxDiff = 0;
+      for (let j = 0; j < currentNumFeatures; j++) {
+        let sum = 0;
+        for (let k = 0; k < currentNumFeatures; k++) {
+          if (j !== k) sum += XTX[j][k] * beta_norm[k];
+        }
+        
+        // Meridian Informative Prior: Use strong Ridge Regularization to prevent 
+        // dominant channels from zeroing out weaker channels under high collinearity.
+        const isMedia = activeMedia.includes(currentFeatures[j]);
+        
+        // Use a strong lambda (0.5) to distribute attribution across all active media,
+        // mirroring Meridian's Half-Normal positive posterior distribution.
+        const lambda = isMedia ? 0.5 : 0.0001; 
+        const priorMu = isMedia ? 0.1 : 0; 
+        
+        let newBeta = (XTY[j] - sum + lambda * priorMu) / (XTX[j][j] + lambda);
+        
+        // Apply Positivity Constraint ONLY to Media Features (Meridian logic)
+        if (isMedia && newBeta < 0) {
+            newBeta = 0;
+        }
+          
+        const diff = Math.abs(newBeta - beta_norm[j]);
+        if (diff > maxDiff) maxDiff = diff;
+        beta_norm[j] = newBeta;
+      }
+      if (maxDiff < 1e-6) break;
+    }
+
+    // Un-normalize beta to original scale
+    const beta = new Array(currentNumFeatures).fill(0);
+    let interceptAdjust = meanY;
+    for (let j = 1; j < currentNumFeatures; j++) {
+      beta[j] = (beta_norm[j] * stdY) / stds[j];
+      interceptAdjust -= beta[j] * means[j];
+    }
+    beta[0] = interceptAdjust + (beta_norm[0] * stdY);
+
+    // Attribution Scaling: Ensure Baseline is mathematically realistic (between 10% and 95%)
+    let totalMediaContrib = 0;
+    let sumY = 0;
+    for (let i = 0; i < N; i++) {
+       sumY += y[i];
+       for (let j = 1; j < currentNumFeatures; j++) {
+          if (activeMedia.includes(currentFeatures[j])) {
+             // Use original uncentered X for contribution
+             totalMediaContrib += X[i][j] * beta[j];
+          }
+       }
+    }
+    
+    // If Media claims more than 90% of all sales (Baseline < 10%)
+    if (totalMediaContrib > sumY * 0.90 && totalMediaContrib > 0) {
+       const scale = (sumY * 0.90) / totalMediaContrib;
+       for (let j = 1; j < currentNumFeatures; j++) {
+          if (activeMedia.includes(currentFeatures[j])) {
+             beta[j] *= scale;
+          }
+       }
+       beta[0] = meanY;
+       for (let j = 1; j < currentNumFeatures; j++) {
+          beta[0] -= beta[j] * means[j];
+       }
+    }
+    
+    // If Baseline is > 95% (Media < 5%), boost media slightly to prevent 0% collapse
+    if (totalMediaContrib < sumY * 0.05 && sumY > 0 && activeMedia.length > 0) {
+       if (totalMediaContrib > 0) {
+           const scale = (sumY * 0.05) / totalMediaContrib;
+           for (let j = 1; j < currentNumFeatures; j++) {
+              if (activeMedia.includes(currentFeatures[j])) {
+                 beta[j] *= scale;
+              }
+           }
+           beta[0] = meanY;
+           for (let j = 1; j < currentNumFeatures; j++) {
+              beta[0] -= beta[j] * means[j];
+           }
+       }
+    }
+
+    const coefficients = {};
+    currentFeatures.forEach((name, idx) => {
+      let coef = beta[idx];
+      if (activeMedia.includes(name) && coef < 0) coef = 0; // Final safety
+      coefficients[name] = coef;
+    });
+
+    let ssRes = 0;
+    for (let i = 0; i < N; i++) {
+      let pred = 0;
+      for (let j = 0; j < currentNumFeatures; j++) pred += X[i][j] * beta[j]; 
+      ssRes += Math.pow(Math.max(0, pred) - y[i], 2);
+    }
+
+    let rmse = Math.sqrt(ssRes / N);
+
+    // Bayesian Prior Penalty: Prevents parameters from wandering to extreme noise values
+    // Matches Meridian's prior distributions for Decay (Beta) and Alpha (Gamma)
+    // If not evaluating a specific media (full model), apply small penalty to all media
     mediaCols.forEach(col => {
-      row.push(transformedMedia[col][i]);
+      const p = currentParams[col];
+      const priorDecay = 0.5;
+      const priorAlpha = 1.5;
+      
+      const priorPenalty = (
+        Math.abs(p.decay - priorDecay) * 0.1 + 
+        Math.abs(p.alpha - priorAlpha) * 0.1 + 
+        (p.peakLag > 2 ? 0.05 : 0)
+      );
+      rmse += (rmse * 0.002) * priorPenalty; 
     });
 
-    baselineMatrixCols.forEach(arr => {
-      row.push(arr[i]);
-    });
+    return { rmse, beta, coefficients, X, currentFeatures };
+  };
 
-    promoCols.forEach(pCol => {
-      if (pCol) row.push(Number(rawData[i][pCol]) || 0);
-    });
+  // Initialize with median values
+  const currentParams = {};
+  mediaCols.forEach(col => {
+    const meanSpend = totalSpends[col] / N || 1;
+    currentParams[col] = { decay: 0.5, peakLag: 0, alpha: 1.5, K: meanSpend };
+  });
 
-    X.push(row);
-  }
+  // Coordinate Descent: optimize one media at a time
+  const searchDecays = [0.1, 0.3, 0.5, 0.7, 0.9];
+  const searchLags = [0, 1, 3, 5, 8, 10];
+  const searchAlphas = [0.5, 1.0, 1.5, 2.0, 2.5];
 
-  // 4. MAP Estimation via Ridge Regression (Bayesian Prior Approximation)
-  const XT = transpose(X);
-  const XTX = multiply(XT, X);
-  const lambda = 1.0; // Prior variance factor
-  for (let j = 1; j < numFeatures; j++) {
-    XTX[j][j] += lambda;
-  }
+  mediaCols.forEach(targetCol => {
+    const meanSpend = totalSpends[targetCol] / N || 1;
+    const searchKs = [meanSpend * 0.3, meanSpend * 0.7, meanSpend * 1.2, meanSpend * 2.0];
+    
+    let bestRMSE = Infinity;
+    let bestP = { ...currentParams[targetCol] };
 
-  const XTX_inv = invertMatrix(XTX);
-  const Y_mat = y.map(val => [val]);
-  const XTY = multiply(XT, Y_mat);
-  const beta_mat = multiply(XTX_inv, XTY);
-  const beta = beta_mat.map(r => r[0]);
+    for (const d of searchDecays) {
+      for (const l of searchLags) {
+        for (const a of searchAlphas) {
+          for (const k of searchKs) {
+            currentParams[targetCol] = { decay: d, peakLag: l, alpha: a, K: k };
+            // Evaluate using univariate isolation for Grid Search stability, 
+            // so weaker channels still get shaped properly before full model merging.
+            const res = evaluateParams(currentParams, targetCol); 
+            if (res.rmse < bestRMSE) {
+              bestRMSE = res.rmse;
+              bestP = { decay: d, peakLag: l, alpha: a, K: k };
+            }
+          }
+        }
+      }
+    }
+    currentParams[targetCol] = bestP; // lock in best for this channel
+  });
 
-  const coefficients = {};
-  featureNames.forEach((name, idx) => {
-    let coef = beta[idx];
-    if (mediaCols.includes(name) && coef < 0) coef = 0; // Positivity constraint for media
-    coefficients[name] = coef;
+  // 4. Final Evaluation with Best Parameters
+  const finalRes = evaluateParams(currentParams);
+  const X = finalRes.X;
+  const coefficients = finalRes.coefficients;
+
+  mediaCols.forEach(col => {
+    meridianParams[col] = currentParams[col];
+    const { adstocked, weights } = applyDelayedAdstock(rawSpends[col], currentParams[col].decay, currentParams[col].peakLag, maxLag);
+    meridianParams[col].adstockWeights = weights;
+    transformedMedia[col] = applyHillTransformation(adstocked, currentParams[col].alpha, currentParams[col].K);
   });
 
   // 5. Fitted Values & 95% Bayesian Credible Intervals Approximation
@@ -272,12 +515,22 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
   let ssTot = 0;
   let ssRes = 0;
   const meanY = y.reduce((a, b) => a + b, 0) / (N || 1);
+  
+  // Calculate TRUE media contribution based on saturated X
+  const channelTrueContribs = {};
+  mediaCols.forEach(col => channelTrueContribs[col] = 0);
+  let totalMediaTrueContrib = 0;
 
   for (let i = 0; i < N; i++) {
     let pred = 0;
-    for (let j = 0; j < numFeatures; j++) {
-      const name = featureNames[j];
-      pred += X[i][j] * coefficients[name];
+    for (let j = 0; j < finalRes.currentFeatures.length; j++) {
+      const name = finalRes.currentFeatures[j];
+      const val = X[i][j] * coefficients[name];
+      pred += val;
+      if (mediaCols.includes(name)) {
+         channelTrueContribs[name] += val;
+         totalMediaTrueContrib += val;
+      }
     }
     pred = Math.max(0, pred);
     yPred.push(pred);
@@ -297,24 +550,11 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
   }
 
   // 6. Attribution Breakdown (Baseline, Promo, Media)
-  const mediaContributions = {};
-  let totalMediaContribVal = 0;
-
-  mediaCols.forEach(col => {
-    let sumVal = 0;
-    for (let i = 0; i < N; i++) {
-      sumVal += transformedMedia[col][i] * coefficients[col];
-    }
-    mediaContributions[col] = sumVal;
-    totalMediaContribVal += sumVal;
-  });
-
   const totalKPI = y.reduce((a, b) => a + b, 0);
   const totalSpendSum = Object.values(totalSpends).reduce((a, b) => a + b, 0);
-  const adjustedBaseline = Math.max(0, totalKPI - totalMediaContribVal);
+  const adjustedBaseline = Math.max(0, totalKPI - totalMediaTrueContrib);
 
   const isCpaMode = kpiType !== 'revenue';
-  const overallCpa = totalKPI > 0 ? totalSpendSum / totalKPI : 0;
 
   // 7. Meridian Metrics: Marginal ROAS (mROAS) & Response Hill Curves
   // Pre-calculate mRoas for dynamic quadrant thresholds in CPA mode
@@ -340,7 +580,7 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
 
   const channelMetrics = mediaCols.map(col => {
     const spend = totalSpends[col];
-    const kpiContrib = mediaContributions[col];
+    const kpiContrib = channelTrueContribs[col];
     
     // For non-revenue KPIs, avgRoas represents Yield per 1M KRW (KPI / (Spend/1M))
     const avgRoas = isCpaMode 

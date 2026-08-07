@@ -192,10 +192,14 @@ export default function FunnelEfficiencyTab({ mmmResult }) {
     const { strongest, channel } = item;
     const absR = Math.abs(strongest.r);
     const strength = getCorrelationLabel(strongest.r);
+    
+    const channelMatch = channel.match(/\((.*?)\)/);
+    const displayName = channelMatch ? channelMatch[1] : channel;
 
     if (strongest.key === 'imp') {
       return {
-        finding: `${channel}은 노출수(Impressions)와 ${kpiTerms.name} 기여도의 상관이 가장 높습니다 (r = ${strongest.r.toFixed(3)}, ${strength}).`,
+        displayName,
+        finding: `${displayName}은(는) 노출수(Impressions)와 ${kpiTerms.name} 기여도의 상관이 가장 높습니다 (r = ${strongest.r.toFixed(3)}, ${strength}).`,
         meaning: `노출이 많은 날일수록 ${kpiTerms.name} 기여도가 높아지는 패턴으로, 이 매체는 사용자에게 광고를 보여주는 것 자체가 ${kpiTerms.name} 향상에 기여하고 있습니다.`,
         strategy: absR >= 0.4
           ? '영상 조회수 극대화, 브랜디드 컨텐츠 노출 확대, 디스플레이 도달(Reach) 캠페인 등 노출 볼륨을 늘릴 수 있는 운영 전략이 필요합니다. CPM 효율적인 지면을 확보하여 동일 예산 대비 더 많은 노출을 확보하세요.'
@@ -203,7 +207,8 @@ export default function FunnelEfficiencyTab({ mmmResult }) {
       };
     } else if (strongest.key === 'clk') {
       return {
-        finding: `${channel}은 클릭수(Clicks)와 ${kpiTerms.name} 기여도의 상관이 가장 높습니다 (r = ${strongest.r.toFixed(3)}, ${strength}).`,
+        displayName,
+        finding: `${displayName}은(는) 클릭수(Clicks)와 ${kpiTerms.name} 기여도의 상관이 가장 높습니다 (r = ${strongest.r.toFixed(3)}, ${strength}).`,
         meaning: `클릭이 많은 날일수록 ${kpiTerms.name} 기여도가 높아지는 패턴으로, 이 매체는 사용자를 사이트/앱으로 유입시키는 것이 ${kpiTerms.name}의 핵심 동인입니다.`,
         strategy: absR >= 0.4
           ? '유입(Traffic)을 극대화할 수 있는 전략이 필요합니다. 클릭 유도형 CTA 강화, 검색 광고 키워드 확장, 리타겟팅 캠페인 강화, 랜딩 페이지 최적화 등을 통해 클릭 볼륨을 높이세요.'
@@ -211,7 +216,8 @@ export default function FunnelEfficiencyTab({ mmmResult }) {
       };
     } else {
       return {
-        finding: `${channel}은 CTR(클릭률)과 ${kpiTerms.name} 기여도의 상관이 가장 높습니다 (r = ${strongest.r.toFixed(3)}, ${strength}).`,
+        displayName,
+        finding: `${displayName}은(는) CTR(클릭률)과 ${kpiTerms.name} 기여도의 상관이 가장 높습니다 (r = ${strongest.r.toFixed(3)}, ${strength}).`,
         meaning: `CTR이 높은 날일수록 ${kpiTerms.name} 기여도가 높아지는 패턴으로, 이 매체는 노출 대비 클릭 효율(소재 품질)이 ${kpiTerms.name}을 좌우합니다.`,
         strategy: absR >= 0.4
           ? '클릭률(CTR)을 높일 수 있는 전략이 필요합니다. A/B 테스트를 통한 광고 소재 최적화, 타겟 오디언스 정교화, 광고 문구/이미지/영상 크리에이티브 개선, 관련성 높은 키워드 집중 등으로 CTR을 향상시키세요.'
@@ -331,7 +337,7 @@ export default function FunnelEfficiencyTab({ mmmResult }) {
                 
                 <div className="pl-3">
                   <div className="flex items-center justify-between mb-3">
-                    <h5 className="text-sm font-bold text-white">{item.channel}</h5>
+                    <h5 className="text-sm font-bold text-white">{interp.displayName}</h5>
                     <div className="flex gap-3 text-[10px] font-mono">
                       <span className={getCorrelationColor(item.rImp)}>노출 r={item.rImp.toFixed(2)}</span>
                       <span className={getCorrelationColor(item.rClk)}>클릭 r={item.rClk.toFixed(2)}</span>

@@ -122,7 +122,32 @@ export default function ContributionChart({ mmmResult }) {
         </h3>
         <p className="text-xs text-slate-400 mb-4">브랜드 자연 발생 {kpiTerms.name}(Baseline) 및 매체별 기여 비율</p>
         <div className="h-56 relative flex items-center justify-center">
-          <Doughnut data={doughnutData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#cbd5e1', font: { size: 10 } } } } }} />
+          <Doughnut data={doughnutData} options={{ 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { 
+              legend: { position: 'bottom', labels: { color: '#cbd5e1', font: { size: 10 } } },
+              tooltip: {
+                callbacks: {
+                  label: (context) => {
+                    let label = context.label || '';
+                    if (label) label += ': ';
+                    const val = context.raw || 0;
+                    const total = context.chart._metasets[context.datasetIndex].total;
+                    const percentage = total > 0 ? ((val / total) * 100).toFixed(1) + '%' : '0%';
+                    
+                    if (kpiTerms.unit === '₩') {
+                      label += new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(val);
+                    } else {
+                      label += new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(val) + ' ' + kpiTerms.unit;
+                    }
+                    label += ` (${percentage})`;
+                    return label;
+                  }
+                }
+              }
+            } 
+          }} />
         </div>
       </div>
 

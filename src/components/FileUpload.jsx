@@ -32,7 +32,7 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
     reader.onload = (evt) => {
       try {
         const bstr = evt.target.result;
-        const wb = XLSX.read(bstr, { type: 'binary', cellDates: true });
+        const wb = XLSX.read(bstr, { type: 'binary', cellDates: false });
         const wsName = wb.SheetNames[0];
         const ws = wb.Sheets[wsName];
         const data = XLSX.utils.sheet_to_json(ws, { defval: 0 });
