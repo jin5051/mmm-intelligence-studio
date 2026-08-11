@@ -15,7 +15,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 export default function WaterfallChartTab({ mmmResult }) {
   if (!mmmResult) return null;
 
-  const { summary, channelMetrics, baselineEffects = {}, kpiTerms = { name: '매출액', roas: 'ROAS', unit: '₩' } } = mmmResult;
+  const { summary, channelMetrics, seasonalityEffects = {}, kpiTerms = { name: '매출액', roas: 'ROAS', unit: '₩' } } = mmmResult;
   const formatKpi = (val) => {
     if (kpiTerms.unit === '₩') return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(val || 0);
     return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(val || 0) + ' ' + kpiTerms.unit;
@@ -38,7 +38,7 @@ export default function WaterfallChartTab({ mmmResult }) {
   const promoValue = (mmmResult.promoEffects || []).reduce((sum, p) => sum + Math.max(0, (p.effectRatio / 100) * totalKPI), 0);
   
   // Trend/Seasonality contribution (rough estimate)
-  const trendSeasonValue = baselineEffects.trendRatio ? (baselineEffects.trendRatio / 100) * totalKPI : 0;
+  const trendSeasonValue = seasonalityEffects.trendRatio ? (Math.abs(seasonalityEffects.trendRatio) / 100) * totalKPI : 0;
   
   const baseValue = Math.max(0, summary.baselineKPI - promoValue - trendSeasonValue);
 
