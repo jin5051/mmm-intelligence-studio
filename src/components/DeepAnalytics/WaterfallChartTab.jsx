@@ -25,6 +25,7 @@ export default function WaterfallChartTab({ mmmResult }) {
   // This is a simplification for visualization purposes. 
   // We'll group baseline into Base, Seasonality/Trend, Promo, and Media.
 
+  // 1. Calculate the initial baseline components
   const totalKPI = summary.totalKPI;
   
   // Media contributions
@@ -34,17 +35,14 @@ export default function WaterfallChartTab({ mmmResult }) {
     color: '#3b82f6'
   }));
 
-  // Promo contribution (if exists)
+  // Promo contribution
   const promoValue = (mmmResult.promoEffects || []).reduce((sum, p) => sum + Math.max(0, (p.effectRatio / 100) * totalKPI), 0);
   
-  // Trend/Seasonality contribution (rough estimate)
-  const trendSeasonValue = seasonalityEffects.trendRatio ? (Math.abs(seasonalityEffects.trendRatio) / 100) * totalKPI : 0;
+  // Baseline (Base + Trend + Seasonality) excluding Promo
+  const baselineValue = Math.max(0, summary.baselineKPI - promoValue);
   
-  const baseValue = Math.max(0, summary.baselineKPI - promoValue - trendSeasonValue);
-
   const waterfallData = [
-    { label: `순수 기저 ${kpiTerms.name} (Base)`, value: baseValue, color: '#94a3b8' },
-    { label: '추세/계절성 효과', value: trendSeasonValue, color: '#f59e0b' },
+    { label: `자연 발생 ${kpiTerms.name} (Baseline)`, value: baselineValue, color: '#94a3b8' },
     { label: '프로모션 총 기여', value: promoValue, color: '#ec4899' },
     ...mediaContribs
   ].filter(d => d.value > 0);
@@ -133,11 +131,7 @@ export default function WaterfallChartTab({ mmmResult }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] text-slate-400">
             <div className="flex items-start gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0 mt-1" />
-              <span><strong className="text-slate-200">순수 기저 {kpiTerms.name} (Base)</strong> : 광고를 하지 않아도 자연적으로 발생하는 {kpiTerms.name} (브랜드 인지도, 고정 고객 등)</span>
-            </div>
-            <div className="flex items-start gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1" />
-              <span><strong className="text-slate-200">추세/계절성 효과</strong> : 여름 성수기, 연말 특수 등 시간의 흐름에 따른 자연 변동분</span>
+              <span><strong className="text-slate-200">자연 발생 {kpiTerms.name} (Baseline)</strong> : 광고를 하지 않아도 자연적으로 발생하는 {kpiTerms.name} (브랜드 인지도, 고정 고객, 계절성 등 포함)</span>
             </div>
             <div className="flex items-start gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-pink-400 shrink-0 mt-1" />
@@ -149,8 +143,8 @@ export default function WaterfallChartTab({ mmmResult }) {
             </div>
           </div>
           <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-            💡 <strong className="text-slate-400">쉽게 말하면:</strong> 광고를 안 해도 생기는 기본 {kpiTerms.name}(Base) 위에, 
-            계절 효과 → 프로모션 → 각 광고 매체 순서로 <strong className="text-emerald-400">{kpiTerms.name}이 쌓여가는 과정</strong>을 보여줍니다. 
+            💡 <strong className="text-slate-400">쉽게 말하면:</strong> 광고를 안 해도 생기는 기본 {kpiTerms.name}(Baseline) 위에, 
+            프로모션 → 각 광고 매체 순서로 <strong className="text-emerald-400">{kpiTerms.name}이 쌓여가는 과정</strong>을 보여줍니다. 
             막대가 큰 매체일수록 {kpiTerms.name}에 더 많이 기여한 것입니다.
           </p>
         </div>
