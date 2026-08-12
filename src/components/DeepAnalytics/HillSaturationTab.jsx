@@ -30,7 +30,12 @@ export default function HillSaturationTab({ mmmResult }) {
   };
 
   // Colors for channels
-  const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899'];
+  const colors = [
+    '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', 
+    '#06b6d4', '#ef4444', '#14b8a6', '#f97316', '#6366f1', 
+    '#84cc16', '#a855f7', '#fbbf24', '#f43f5e', '#38bdf8', 
+    '#c084fc', '#fb923c', '#34d399', '#e879f9', '#818cf8'
+  ];
 
   // Prepare Datasets for Chart
   const xLabels = channelMetrics[0]?.responseCurvePoints.map(p => `${p.spendPercent}%`) || [];

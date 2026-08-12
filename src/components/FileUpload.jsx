@@ -150,7 +150,12 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
   const handlePromoChange = (idx, value) => {
     const newPromos = [...promoCols];
     newPromos[idx] = value;
-    setPromoCols(newPromos.filter(Boolean));
+    const filteredPromos = newPromos.filter(Boolean);
+    setPromoCols(filteredPromos);
+    // Remove from media columns if it was already selected
+    if (value && selectedMediaCols.includes(value)) {
+      setSelectedMediaCols(prev => prev.filter(c => c !== value));
+    }
   };
 
   const handleExtraMediaChange = (mediaCol, type, value) => {
@@ -164,15 +169,18 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
   };
 
   // Execute Analysis
-  const handleRunAnalysis = () => {
-    if (!parsedData || !dateCol || !kpiCol || selectedMediaCols.length === 0) {
-      setErrorMsg('일자, KPI 컬럼 및 1개 이상의 광고 매체 컬럼을 선택해 주세요.');
+  const handleAnalyzeClick = () => {
+    // Final safety filter to prevent any overlap
+    const finalMediaCols = selectedMediaCols.filter(c => !promoCols.includes(c) && c !== geoCol);
+    
+    if (!parsedData || !dateCol || !kpiCol || finalMediaCols.length === 0) {
+      alert("분석을 위한 매체 항목이 최소 1개 이상 선택되어야 합니다.");
       return;
     }
     
     // Construct extraCols object
     const extraCols = { promoCols, geoCol };
-    selectedMediaCols.forEach(mCol => {
+    finalMediaCols.forEach(mCol => {
       if (extraMediaCols[mCol]?.impressions) {
         extraCols[`${mCol}_impressions`] = extraMediaCols[mCol].impressions;
       }
@@ -181,7 +189,7 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
       }
     });
 
-    onAnalysisComplete(parsedData, dateCol, kpiCol, selectedMediaCols, extraCols, selectedKpiType);
+    onAnalysisComplete(parsedData, dateCol, kpiCol, finalMediaCols, extraCols, selectedKpiType);
   };
 
   return (
@@ -371,7 +379,7 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
           {/* Execute Button */}
           <div className="flex justify-end pt-2">
             <button
-              onClick={handleRunAnalysis}
+              onClick={handleAnalyzeClick}
               className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg glow-blue transition flex items-center gap-2"
             >
               Meridian MMM 분석 시작

@@ -594,19 +594,22 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
     const shareOfContrib = totalKPI > 0 ? (kpiContrib / totalKPI) * 100 : 0;
 
     // 4-Quadrant Positioning Classification
-    let quadrant = 'Opportunities';
-    
-    // In Yield mode, higher mRoas is better. Compare to the average marginal yield of the current mix.
-    let isEfficient = false;
-    if (isCpaMode) {
-      isEfficient = mRoas >= meanMRoas; 
-    } else {
-      isEfficient = mRoas >= 1.5;
-    }
+    // Dynamic thresholds based on Meridian optimization principles
+    const meanShare = 100 / (mediaCols.length || 1);
+    const mRoasValues = mediaCols.map(c => mRoasMap[c]).sort((a,b) => a - b);
+    const medianMRoas = mRoasValues.length > 0 
+        ? (mRoasValues.length % 2 === 0 
+            ? (mRoasValues[mRoasValues.length/2 - 1] + mRoasValues[mRoasValues.length/2]) / 2 
+            : mRoasValues[Math.floor(mRoasValues.length/2)]) 
+        : 1.5;
 
-    if (shareOfSpend >= 20 && isEfficient) quadrant = 'Stars';
-    else if (shareOfSpend >= 20 && !isEfficient) quadrant = 'Cash Cows';
-    else if (shareOfSpend < 20 && isEfficient) quadrant = 'Opportunities';
+    const isEfficient = mRoas >= medianMRoas;
+    const isHighSpend = shareOfSpend >= meanShare;
+
+    let quadrant = 'Opportunities';
+    if (isHighSpend && isEfficient) quadrant = 'Stars';
+    else if (isHighSpend && !isEfficient) quadrant = 'Cash Cows';
+    else if (!isHighSpend && isEfficient) quadrant = 'Opportunities';
     else quadrant = 'Red Flags';
 
     // Funnel Metrics
@@ -665,10 +668,12 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
     if (!pCol) return null;
     const featName = `프로모션${promoCols.length > 1 ? idx + 1 : ''}(Promo)`;
     const coef = coefficients[featName] || 0;
+    const sumPromo = rawData.reduce((acc, r) => acc + (Number(r[pCol]) || 0), 0);
+    const totalPromoContrib = coef * sumPromo;
     return {
       name: pCol,
       coef: coef,
-      effectRatio: (coef / meanY) * 100
+      effectRatio: totalKPI > 0 ? (totalPromoContrib / totalKPI) * 100 : 0
     };
   }).filter(Boolean);
 

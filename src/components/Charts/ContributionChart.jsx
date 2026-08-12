@@ -30,7 +30,12 @@ export default function ContributionChart({ mmmResult }) {
   };
   const formatSpend = (val) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(val || 0);
 
-  const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4'];
+  const colors = [
+    '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', 
+    '#06b6d4', '#ef4444', '#14b8a6', '#f97316', '#6366f1', 
+    '#84cc16', '#a855f7', '#fbbf24', '#f43f5e', '#38bdf8', 
+    '#c084fc', '#fb923c', '#34d399', '#e879f9', '#818cf8'
+  ];
 
   const doughnutLabels = [`자연 발생 ${kpiTerms.name} (Baseline)`, ...channelMetrics.map(m => m.channel)];
   const doughnutDataValues = [summary.baselineKPI || 0, ...channelMetrics.map(m => m.revenueContrib || 0)];
@@ -121,12 +126,12 @@ export default function ContributionChart({ mmmResult }) {
           <PieChart className="w-5 h-5 text-indigo-400" /> {kpiTerms.name} 발생 기여도 비중 (%)
         </h3>
         <p className="text-xs text-slate-400 mb-4">브랜드 자연 발생 {kpiTerms.name}(Baseline) 및 매체별 기여 비율</p>
-        <div className="h-56 relative flex items-center justify-center">
+        <div className="h-80 w-full relative flex items-center justify-center">
           <Doughnut data={doughnutData} options={{ 
             responsive: true, 
             maintainAspectRatio: false, 
             plugins: { 
-              legend: { position: 'bottom', labels: { color: '#cbd5e1', font: { size: 10 } } },
+              legend: { position: 'right', labels: { color: '#cbd5e1', font: { size: 10 } } },
               tooltip: {
                 callbacks: {
                   label: (context) => {
@@ -157,7 +162,7 @@ export default function ContributionChart({ mmmResult }) {
           <BarChart2 className="w-5 h-5 text-emerald-400" /> 매체별 광고 지출액 vs 창출 {kpiTerms.name} 비교
         </h3>
         <p className="text-xs text-slate-400 mb-4">광고 집행 금액 대비 각 매체가 실제로 견인한 {kpiTerms.name} 성과 비교</p>
-        <div className="h-56 w-full">
+        <div className="h-80 w-full">
           <Bar data={barData} options={barOptions} />
         </div>
       </div>

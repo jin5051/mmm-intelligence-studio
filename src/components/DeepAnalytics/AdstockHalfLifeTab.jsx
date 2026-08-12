@@ -26,7 +26,12 @@ export default function AdstockHalfLifeTab({ mmmResult }) {
   if (!mmmResult) return null;
 
   const { channelMetrics } = mmmResult;
-  const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899'];
+  const colors = [
+    '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', 
+    '#06b6d4', '#ef4444', '#14b8a6', '#f97316', '#6366f1', 
+    '#84cc16', '#a855f7', '#fbbf24', '#f43f5e', '#38bdf8', 
+    '#c084fc', '#fb923c', '#34d399', '#e879f9', '#818cf8'
+  ];
 
   // Prepare Adstock Decay Weight Chart (Lag 0 ~ 8)
   const maxLag = 8;

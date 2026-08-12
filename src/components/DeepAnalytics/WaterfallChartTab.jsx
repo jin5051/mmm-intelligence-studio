@@ -28,11 +28,18 @@ export default function WaterfallChartTab({ mmmResult }) {
   // 1. Calculate the initial baseline components
   const totalKPI = summary.totalKPI;
   
+  const CHART_COLORS = [
+    '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', 
+    '#06b6d4', '#ef4444', '#14b8a6', '#f97316', '#6366f1', 
+    '#84cc16', '#a855f7', '#fbbf24', '#f43f5e', '#38bdf8', 
+    '#c084fc', '#fb923c', '#34d399', '#e879f9', '#818cf8'
+  ];
+
   // Media contributions
-  const mediaContribs = channelMetrics.map(m => ({
+  const mediaContribs = channelMetrics.map((m, idx) => ({
     label: m.channel,
     value: m.revenueContrib,
-    color: '#3b82f6'
+    color: CHART_COLORS[idx % CHART_COLORS.length]
   }));
 
   // Promo contribution
@@ -43,7 +50,7 @@ export default function WaterfallChartTab({ mmmResult }) {
   
   const waterfallData = [
     { label: `자연 발생 ${kpiTerms.name} (Baseline)`, value: baselineValue, color: '#94a3b8' },
-    { label: '프로모션 총 기여', value: promoValue, color: '#ec4899' },
+    { label: '프로모션 및 이벤트 총 기여', value: promoValue, color: '#ec4899' },
     ...mediaContribs
   ].filter(d => d.value > 0);
 
@@ -121,7 +128,7 @@ export default function WaterfallChartTab({ mmmResult }) {
           <BarChart3 className="w-5 h-5 text-indigo-400" /> 증분 KPI 워터폴 차트 (Incremental KPI Waterfall)
         </h3>
         <p className="text-xs text-slate-400">
-          기저(Base) KPI에서 출발하여 계절성, 프로모션, 그리고 각 마케팅 매체가 만들어낸 **순증분(Incremental Lift)**을 
+          기저(Base) KPI에서 출발하여 계절성, 프로모션/이벤트, 그리고 각 마케팅 매체가 만들어낸 **순증분(Incremental Lift)**을 
           누적하여 최종 KPI에 도달하는 과정을 시각화합니다.
         </p>
 
@@ -135,7 +142,7 @@ export default function WaterfallChartTab({ mmmResult }) {
             </div>
             <div className="flex items-start gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-pink-400 shrink-0 mt-1" />
-              <span><strong className="text-slate-200">프로모션 효과</strong> : 할인, 이벤트 등 프로모션 활동으로 인한 {kpiTerms.name} 증가분</span>
+              <span><strong className="text-slate-200">프로모션 및 이벤트 효과</strong> : 할인, 이벤트 등 프로모션 활동으로 인한 {kpiTerms.name} 증가분</span>
             </div>
             <div className="flex items-start gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 mt-1" />
@@ -144,7 +151,7 @@ export default function WaterfallChartTab({ mmmResult }) {
           </div>
           <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
             💡 <strong className="text-slate-400">쉽게 말하면:</strong> 광고를 안 해도 생기는 기본 {kpiTerms.name}(Baseline) 위에, 
-            프로모션 → 각 광고 매체 순서로 <strong className="text-emerald-400">{kpiTerms.name}이 쌓여가는 과정</strong>을 보여줍니다. 
+            프로모션/이벤트 → 각 광고 매체 순서로 <strong className="text-emerald-400">{kpiTerms.name}이 쌓여가는 과정</strong>을 보여줍니다. 
             막대가 큰 매체일수록 {kpiTerms.name}에 더 많이 기여한 것입니다.
           </p>
         </div>
