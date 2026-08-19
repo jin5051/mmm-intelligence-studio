@@ -30,7 +30,8 @@ export default function AnalystReport({ mmmResult }) {
 
   const weekendEffect = Number(seasonalityEffects?.weekendEffectRatio) || 0;
 
-  const rSquared = Number(summary?.rSquared) || 0;
+  const rSquaredWeekly = Number(summary?.rSquaredWeekly ?? summary?.rSquared) || 0;
+  const rSquaredDaily = Number(summary?.rSquaredDaily ?? summary?.rSquared) || 0;
 
   return (
     <div className="glass-panel rounded-2xl p-6 md:p-8 border border-slate-800 shadow-2xl mb-12">
@@ -48,7 +49,7 @@ export default function AnalystReport({ mmmResult }) {
         </div>
 
         <span className="text-xs font-mono bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700">
-          신뢰도: {(rSquared * 100).toFixed(1)}% (R²)
+          신뢰도: <strong className="text-indigo-400">{(rSquaredWeekly * 100).toFixed(1)}%</strong> (주단위 R²) / <span className="text-slate-400">{(rSquaredDaily * 100).toFixed(1)}% (일단위 R²)</span>
         </span>
       </div>
 

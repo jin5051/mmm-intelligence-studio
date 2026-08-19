@@ -20,7 +20,8 @@ export default function MetricsOverview({ mmmResult }) {
   const safeNum = (val) => Number(val) || 0;
 
   const totalROAS = Number(summary.totalROAS) || 0;
-  const rSquared = Number(summary.rSquared) || 0;
+  const rSquaredWeekly = Number(summary.rSquaredWeekly ?? summary.rSquared) || 0;
+  const rSquaredDaily = Number(summary.rSquaredDaily ?? summary.rSquared) || 0;
   const baselineRatio = Number(summary.baselineRatio) || 0;
 
   return (
@@ -70,9 +71,11 @@ export default function MetricsOverview({ mmmResult }) {
           </div>
         </div>
         <div className="text-lg md:text-xl font-bold text-indigo-400 tracking-tight mb-1">
-          {(rSquared * 100).toFixed(1)}%
+          {(rSquaredWeekly * 100).toFixed(1)}% <span className="text-xs font-semibold text-indigo-300/80">(주단위)</span>
         </div>
-        <p className="text-[11px] text-slate-400">회귀 모델의 실제 {kpiTerms.name} 예측 정밀도</p>
+        <p className="text-[11px] text-slate-400">
+          회귀 모델의 실제 {kpiTerms.name} 예측 정밀도 <span className="text-slate-300 font-medium">(일단위: {(rSquaredDaily * 100).toFixed(1)}%)</span>
+        </p>
         <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-indigo-500/5 rounded-full blur-xl pointer-events-none" />
       </div>
 

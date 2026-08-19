@@ -158,7 +158,7 @@ export default function App() {
 
         {/* Footer */}
         <footer className="text-center text-xs text-slate-500 py-6 border-t border-slate-900">
-          MMM Intelligence Studio &copy; {new Date().getFullYear()} — Powered by Meridian & PyMC Compliant Analytics Engine
+          MMM Intelligence Studio &copy; {new Date().getFullYear()} — Powered by Google Meridian Analytics Engine
         </footer>
 
       </div>

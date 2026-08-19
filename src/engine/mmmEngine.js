@@ -1,5 +1,5 @@
 /**
- * Advanced Meridian & PyMC-Marketing Grade MMM Mathematical Engine
+ * Advanced Google Meridian Grade MMM Mathematical Engine
  * 
  * Deep Analytics Extensions (Meridian Updated):
  * 1. Delayed Adstock Carryover (Peak lag & Shape)
@@ -75,7 +75,7 @@ function invertMatrix(M) {
 }
 
 // Delayed Adstock Transformation (Meridian standard)
-export function applyDelayedAdstock(series, decay = 0.5, peakLag = 0, maxLag = 8) {
+export function applyDelayedAdstock(series, decay = 0.5, peakLag = 0, maxLag = 10) {
   const n = series.length;
   const adstocked = new Array(n).fill(0);
   
@@ -249,7 +249,7 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
   });
   const numFeatures = featureNames.length;
 
-  const maxLag = 10; // Extended from 8 to 10 days
+  const maxLag = 10; // Extended to 10 days (Lag 0 ~ Lag 10)
 
   const evaluateParams = (currentParams, targetMedia = null) => {
     const X = [];
@@ -337,7 +337,7 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
 
     // Coordinate Descent for Ridge Regression with Positivity Constraint (NNLS)
     const beta_norm = new Array(currentNumFeatures).fill(0);
-    const maxIter = 200;
+    const maxIter = 60;
     
     for (let iter = 0; iter < maxIter; iter++) {
       let maxDiff = 0;
@@ -367,7 +367,7 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
         if (diff > maxDiff) maxDiff = diff;
         beta_norm[j] = newBeta;
       }
-      if (maxDiff < 1e-6) break;
+      if (maxDiff < 1e-4) break;
     }
 
     // Un-normalize beta to original scale
@@ -539,7 +539,29 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
     ssRes += Math.pow(y[i] - yPred[i], 2);
   }
 
-  const rSquared = Math.max(0, 1 - (ssRes / (ssTot || 1)));
+  // Daily R-Squared calculation
+  const rSquaredDaily = Math.max(0, 1 - (ssRes / (ssTot || 1)));
+
+  // Weekly R-Squared calculation (Meridian standard evaluation aggregation)
+  const yWeeklyActual = [];
+  const yWeeklyPred = [];
+  for (let i = 0; i < N; i += 7) {
+    const chunkActual = y.slice(i, i + 7).reduce((a, b) => a + b, 0);
+    const chunkPred = yPred.slice(i, i + 7).reduce((a, b) => a + b, 0);
+    yWeeklyActual.push(chunkActual);
+    yWeeklyPred.push(chunkPred);
+  }
+  const meanWeeklyY = yWeeklyActual.reduce((a, b) => a + b, 0) / (yWeeklyActual.length || 1);
+  let ssTotWeekly = 0;
+  let ssResWeekly = 0;
+  for (let w = 0; w < yWeeklyActual.length; w++) {
+    ssTotWeekly += Math.pow(yWeeklyActual[w] - meanWeeklyY, 2);
+    ssResWeekly += Math.pow(yWeeklyActual[w] - yWeeklyPred[w], 2);
+  }
+  const rSquaredWeekly = Math.max(0, 1 - (ssResWeekly / (ssTotWeekly || 1)));
+  
+  // Set primary R-squared to Weekly R-squared as requested
+  const rSquared = rSquaredWeekly;
   const rmse = Math.sqrt(ssRes / N);
 
   // 95% CI standard error approximation
@@ -687,6 +709,8 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
         ? (totalSpendSum > 0 ? totalKPI / (totalSpendSum / 1000000) : 0) // Yield per 1M KRW
         : (totalSpendSum > 0 ? totalKPI / totalSpendSum : 0),
       rSquared,
+      rSquaredWeekly,
+      rSquaredDaily,
       rmse,
       baselineKPI: adjustedBaseline,
       baselineRatio: totalKPI > 0 ? (adjustedBaseline / totalKPI) * 100 : 0,

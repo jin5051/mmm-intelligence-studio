@@ -33,8 +33,12 @@ export default function AdstockHalfLifeTab({ mmmResult }) {
     '#c084fc', '#fb923c', '#34d399', '#e879f9', '#818cf8'
   ];
 
-  // Prepare Adstock Decay Weight Chart (Lag 0 ~ 8)
-  const maxLag = 8;
+  // Prepare Adstock Decay Weight Chart (Lag 0 ~ maxLag)
+  const maxLagLen = channelMetrics.reduce((max, item) => {
+    const len = item.params?.adstockWeights ? item.params.adstockWeights.length : 0;
+    return Math.max(max, len);
+  }, 11);
+  const maxLag = maxLagLen > 0 ? maxLagLen - 1 : 10;
   const labels = Array.from({ length: maxLag + 1 }, (_, i) => `Lag ${i}`);
   
   const datasets = channelMetrics.map((item, idx) => {
@@ -94,7 +98,7 @@ export default function AdstockHalfLifeTab({ mmmResult }) {
         </h3>
         <p className="text-xs text-slate-400">
           단순 지수 감쇠(Geometric Decay)를 넘어, 광고 효과의 최대점(Peak)이 즉각(Lag 0) 나타나지 않고 지연(Delayed)되어 나타나는 현상을 모델링합니다. 
-          Peak Lag와 Decay 비율에 따른 시간 가중치 곡선을 보여줍니다.
+          Peak Lag와 Decay 비율에 따른 시간 가중치 곡선을 보여줍니다. (Lag 0 ~ 10 가중치 합계 = 100%)
         </p>
 
         {/* 초보자용 Lag 설명 */}
@@ -119,7 +123,7 @@ export default function AdstockHalfLifeTab({ mmmResult }) {
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-              <span><strong className="text-slate-200">Lag 5~8</strong> : 5~8일 후 잔여 효과</span>
+              <span><strong className="text-slate-200">Lag 5~10</strong> : 5~10일 후 잔여 효과</span>
             </div>
           </div>
           <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
