@@ -33,12 +33,13 @@ export default function AdstockHalfLifeTab({ mmmResult }) {
     '#c084fc', '#fb923c', '#34d399', '#e879f9', '#818cf8'
   ];
 
-  // Prepare Adstock Decay Weight Chart (Lag 0 ~ maxLag)
+  // Prepare Adstock Decay Weight Chart
   const maxLagLen = channelMetrics.reduce((max, item) => {
     const len = item.params?.adstockWeights ? item.params.adstockWeights.length : 0;
     return Math.max(max, len);
-  }, 11);
-  const maxLag = maxLagLen > 0 ? maxLagLen - 1 : 10;
+  }, 0);
+  // Default to 8 if no data
+  const maxLag = maxLagLen > 0 ? maxLagLen - 1 : 8;
   const labels = Array.from({ length: maxLag + 1 }, (_, i) => `Lag ${i}`);
   
   const datasets = channelMetrics.map((item, idx) => {
@@ -98,39 +99,38 @@ export default function AdstockHalfLifeTab({ mmmResult }) {
         </h3>
         <p className="text-xs text-slate-400">
           단순 지수 감쇠(Geometric Decay)를 넘어, 광고 효과의 최대점(Peak)이 즉각(Lag 0) 나타나지 않고 지연(Delayed)되어 나타나는 현상을 모델링합니다. 
-          Peak Lag와 Decay 비율에 따른 시간 가중치 곡선을 보여줍니다. (Lag 0 ~ 10 가중치 합계 = 100%)
+          Peak Lag와 Decay 팩터를 시간 가중치 곡선으로 시각화합니다. (Lag 0 ~ 8 가중치 합산 = 100%)
         </p>
 
         {/* 초보자용 Lag 설명 */}
-        <div className="mt-3 p-3 bg-slate-800/60 rounded-xl border border-slate-700/50">
-          <p className="text-[11px] font-semibold text-slate-300 mb-2">📖 Lag(지연 기간) 용어 안내</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-[10px] text-slate-400">
+        <div className="mb-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 mt-3">
+          <p className="text-[11px] font-semibold text-slate-300 mb-2">💡 Lag(시간 지연) 해석 가이드</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4 text-[10px] text-slate-400">
             <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-              <span><strong className="text-slate-200">Lag 0</strong> : 광고 집행 당일 효과</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+              <span><strong className="text-slate-200">Lag 0</strong> : 집행 당일 효과</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-              <span><strong className="text-slate-200">Lag 1</strong> : 1일 후 잔여 효과</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+              <span><strong className="text-slate-200">Lag 1</strong> : 1일/주 뒤의 효과</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-              <span><strong className="text-slate-200">Lag 2</strong> : 2일 후 잔여 효과</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+              <span><strong className="text-slate-200">Lag 2</strong> : 2일/주 뒤의 효과</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-              <span><strong className="text-slate-200">Lag 3~4</strong> : 3~4일 후 잔여 효과</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span><strong className="text-slate-200">Lag 3~4</strong> : 3~4일/주 뒤의 효과</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-              <span><strong className="text-slate-200">Lag 5~10</strong> : 5~10일 후 잔여 효과</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+              <span><strong className="text-slate-200">Lag 5~8</strong> : 5~8일/주 뒤의 효과</span>
             </div>
           </div>
-          <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-            💡 <strong className="text-slate-400">쉽게 말하면:</strong> 오늘 광고를 집행하면, 효과가 당일에만 끝나는 것이 아니라 며칠에 걸쳐 이월(Carryover)됩니다. 
-            가중치가 높은 Lag 지점이 해당 매체의 <strong className="text-slate-300">효과 최대 시점</strong>이며, 
-            Lag 0이 가장 크면 <strong className="text-blue-400">즉각 효과형</strong>(검색 광고 등), 
-            Lag 1~2가 크면 <strong className="text-emerald-400">지연 효과형</strong>(브랜드/영상 광고 등)입니다.
+          <p className="text-[10px] text-slate-400 mt-3 pt-3 border-t border-slate-700/50">
+            가중치가 가장 높은 Lag가 해당 매체의 <strong className="text-slate-300">효과 정점(Peak)</strong>이며, 
+            Lag 0이 크면 <strong className="text-blue-400">즉각 효과</strong>(검색 광고 등), 
+            Lag 1~2가 크면 <strong className="text-emerald-400">지연 효과</strong>(브랜딩/콘텐츠 등)입니다.
           </p>
         </div>
       </div>

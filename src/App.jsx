@@ -61,11 +61,11 @@ export default function App() {
     }, 400);
   };
 
-  const handleCustomAnalysis = (parsedData, dateCol, kpiCol, selectedMediaCols, extraCols = {}, kpiType = 'revenue') => {
+  const handleCustomAnalysis = (parsedData, dateCol, kpiCol, selectedMediaCols, extraCols = {}, kpiType = 'revenue', mediaPriorConfig = {}) => {
     setIsLoading(true);
     setTimeout(() => {
       try {
-        const res = runMMMAnalysis(parsedData, dateCol, kpiCol, selectedMediaCols, extraCols, kpiType);
+        const res = runMMMAnalysis(parsedData, dateCol, kpiCol, selectedMediaCols, extraCols, kpiType, mediaPriorConfig);
         setMmmResult(res);
       } catch (err) {
         console.error("Analysis Error:", err);

@@ -201,7 +201,7 @@ export default function ContributionChart({ mmmResult }) {
                     <td className="px-4 py-3 text-emerald-400 font-bold">{formatKpi(item.revenueContrib)}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded font-bold ${roasVal >= 3.0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-400'}`}>
-                        {roasVal.toFixed(2)}x
+                        {isCpaMode ? `${roasVal.toFixed(2)} ${kpiTerms.unit}/100만` : `${roasVal.toFixed(2)}x`}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-400">{sosVal.toFixed(1)}%</td>

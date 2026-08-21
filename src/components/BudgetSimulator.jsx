@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sliders, RotateCcw, Sparkles, ArrowUpRight, TrendingUp } from 'lucide-react';
-import { simulateBudgetChange } from '../engine/mmmEngine';
+import { simulateBudgetChange, optimizeBudget } from '../engine/mmmEngine';
 
 export default function BudgetSimulator({ mmmResult }) {
   if (!mmmResult || !mmmResult.channelMetrics) return null;
@@ -8,6 +8,7 @@ export default function BudgetSimulator({ mmmResult }) {
   const { channelMetrics, kpiTerms = { name: '매출액', roas: 'ROAS', unit: '₩' } } = mmmResult;
   const [multipliers, setMultipliers] = useState({});
   const [simulationResult, setSimulationResult] = useState(null);
+  const [optimizeMode, setOptimizeMode] = useState(null); // 'mROAS' | 'heuristic' | null
 
   useEffect(() => {
     const initial = {};
@@ -37,21 +38,34 @@ export default function BudgetSimulator({ mmmResult }) {
       reset[m.channel] = 1.0;
     });
     setMultipliers(reset);
+    setOptimizeMode(null);
   };
 
   const handleAutoOptimize = () => {
-    const optimized = {};
-    channelMetrics.forEach(m => {
-      const roasVal = Number(m.mRoas ?? m.avgRoas ?? m.roas) || 0;
-      if (roasVal >= 2.0) {
-        optimized[m.channel] = 1.35;
-      } else if (roasVal >= 1.0) {
-        optimized[m.channel] = 1.15;
-      } else {
-        optimized[m.channel] = 0.75;
+    try {
+      const result = optimizeBudget(mmmResult);
+      if (result && result.optimizedChannels) {
+        const optimized = {};
+        result.optimizedChannels.forEach(ch => {
+          const originalSpend = ch.originalSpend || 1;
+          optimized[ch.channel] = Math.max(0.5, Math.min(2.0, ch.optimizedSpend / originalSpend));
+        });
+        setMultipliers(optimized);
+        setOptimizeMode('mROAS');
       }
-    });
-    setMultipliers(optimized);
+    } catch (err) {
+      console.error("Budget optimization error:", err);
+      // Fallback to simple heuristic
+      const fallback = {};
+      channelMetrics.forEach(m => {
+        const roasVal = Number(m.mRoas ?? m.avgRoas ?? m.roas) || 0;
+        if (roasVal >= 2.0) fallback[m.channel] = 1.35;
+        else if (roasVal >= 1.0) fallback[m.channel] = 1.15;
+        else fallback[m.channel] = 0.75;
+      });
+      setMultipliers(fallback);
+      setOptimizeMode('heuristic');
+    }
   };
 
   const formatKpi = (val) => {
@@ -91,6 +105,20 @@ export default function BudgetSimulator({ mmmResult }) {
             <Sparkles className="w-3.5 h-3.5" />
             AI 최적 예산 배치 추천
           </button>
+
+          {/* Algorithm Mode Badge */}
+          {optimizeMode === 'mROAS' && (
+            <span className="px-2.5 py-1 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-md text-[10px] font-bold flex items-center gap-1 animate-fadeIn">
+              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+              mROAS 균등화 최적화 적용됨
+            </span>
+          )}
+          {optimizeMode === 'heuristic' && (
+            <span className="px-2.5 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-md text-[10px] font-bold flex items-center gap-1 animate-fadeIn">
+              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" />
+              간이 휴리스틱 모드 (Fallback)
+            </span>
+          )}
           
           <button
             onClick={handleReset}

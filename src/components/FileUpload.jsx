@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, FileSpreadsheet, Check, Sparkles, AlertCircle, ArrowRight, Info } from 'lucide-react';
+import { Upload, FileSpreadsheet, Check, Sparkles, AlertCircle, ArrowRight, Info, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { generateSampleMMMData } from '../utils/sampleDataGenerator';
+import { MEDIA_CATEGORIES } from '../engine/mmmEngine';
 
 export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoadDemo, selectedKpiType }) {
   const [fileName, setFileName] = useState('');
@@ -14,9 +15,12 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
   const [selectedMediaCols, setSelectedMediaCols] = useState([]);
   
   // Extra Meridian Columns
-  const [promoCols, setPromoCols] = useState([]); // Up to 3
+  const [promoCols, setPromoCols] = useState([]);
   const [geoCol, setGeoCol] = useState('');
-  const [extraMediaCols, setExtraMediaCols] = useState({}); // { meta_spend: { imp: 'meta_imp', clk: 'meta_clk' } }
+  const [extraMediaCols, setExtraMediaCols] = useState({});
+  
+  // [NEW] Media Prior Configuration
+  const [mediaPriorConfig, setMediaPriorConfig] = useState({});
   
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -45,8 +49,6 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
         const cols = Object.keys(data[0]);
         setColumns(cols);
         setParsedData(data);
-
-        // Auto-Detect Columns
         autoDetectColumns(cols);
       } catch (err) {
         setErrorMsg('엑셀 파일을 읽는 중 오류가 발생했습니다: ' + err.message);
@@ -63,7 +65,6 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
     let pCols = cols.filter(c => /promo|프로모션|할인|이벤트/i.test(c)).slice(0, 3);
     let gCol = cols.find(c => /geo|지역|지점|region/i.test(c)) || '';
 
-    // First detect media via (mediaName) parenthesis logic
     const mediaGroups = {};
     cols.forEach(c => {
       if (c === dCol || c === kCol || c === gCol || pCols.includes(c)) return;
@@ -91,7 +92,6 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
       }
     });
 
-    // Fallback detection if no parentheses used
     if (detectedMediaCols.length === 0) {
       detectedMediaCols = cols.filter(c => 
         c !== dCol && c !== kCol && !pCols.includes(c) && c !== gCol &&
@@ -113,7 +113,6 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
     setGeoCol(gCol);
     setExtraMediaCols(extras);
     
-    // Fallback: exclude any column that sounds like date or kpi
     const safeFallbackCols = cols.filter(c => 
       c !== dCol && 
       c !== kCol && 
@@ -121,10 +120,18 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
       !/revenue|매출|sales|총매출|kpi|install|주문|설치|유입|구매|잠재/i.test(c)
     ).slice(0,4);
 
-    setSelectedMediaCols(detectedMediaCols.length > 0 ? detectedMediaCols : safeFallbackCols);
+    const finalMedia = detectedMediaCols.length > 0 ? detectedMediaCols : safeFallbackCols;
+    setSelectedMediaCols(finalMedia);
+
+    // Initialize default prior config for detected media
+    const initPrior = {};
+    finalMedia.forEach(col => {
+      initPrior[col] = { category: 'none', mixRatio: 0, dashboardRoas: '' };
+    });
+    setMediaPriorConfig(initPrior);
   };
 
-  // Load Sample Instant Demo Data
+  // Load Sample Demo Data
   const handleLoadDemoData = () => {
     const sampleData = generateSampleMMMData(selectedKpiType);
     const cols = Object.keys(sampleData[0]);
@@ -139,11 +146,20 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
   const toggleMediaCol = (col) => {
     if (selectedMediaCols.includes(col)) {
       setSelectedMediaCols(selectedMediaCols.filter(c => c !== col));
+      // Clean up prior config
+      const newConfig = { ...mediaPriorConfig };
+      delete newConfig[col];
+      setMediaPriorConfig(newConfig);
     } else {
       setSelectedMediaCols([...selectedMediaCols, col]);
       if (!extraMediaCols[col]) {
         setExtraMediaCols({ ...extraMediaCols, [col]: { impressions: '', clicks: '' } });
       }
+      // Initialize prior config for new media
+      setMediaPriorConfig(prev => ({
+        ...prev,
+        [col]: { category: 'none', mixRatio: 0, dashboardRoas: '' }
+      }));
     }
   };
 
@@ -152,7 +168,6 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
     newPromos[idx] = value;
     const filteredPromos = newPromos.filter(Boolean);
     setPromoCols(filteredPromos);
-    // Remove from media columns if it was already selected
     if (value && selectedMediaCols.includes(value)) {
       setSelectedMediaCols(prev => prev.filter(c => c !== value));
     }
@@ -168,9 +183,40 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
     });
   };
 
+  // [NEW] Prior config handlers
+  const handlePriorCategoryChange = (mediaCol, category) => {
+    setMediaPriorConfig(prev => ({
+      ...prev,
+      [mediaCol]: {
+        ...prev[mediaCol],
+        category,
+        mixRatio: 0 // 카테고리 변경 시 비중 초기화
+      }
+    }));
+  };
+
+  const handlePriorMixRatioChange = (mediaCol, value) => {
+    setMediaPriorConfig(prev => ({
+      ...prev,
+      [mediaCol]: {
+        ...prev[mediaCol],
+        mixRatio: parseFloat(value) / 100  // 0~100 → 0~1
+      }
+    }));
+  };
+
+  const handlePriorRoasChange = (mediaCol, value) => {
+    setMediaPriorConfig(prev => ({
+      ...prev,
+      [mediaCol]: {
+        ...prev[mediaCol],
+        dashboardRoas: value
+      }
+    }));
+  };
+
   // Execute Analysis
   const handleAnalyzeClick = () => {
-    // Final safety filter to prevent any overlap
     const finalMediaCols = selectedMediaCols.filter(c => !promoCols.includes(c) && c !== geoCol);
     
     if (!parsedData || !dateCol || !kpiCol || finalMediaCols.length === 0) {
@@ -189,7 +235,31 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
       }
     });
 
-    onAnalysisComplete(parsedData, dateCol, kpiCol, finalMediaCols, extraCols, selectedKpiType);
+    // Build prior config with parsed ROAS values
+    const priorConfig = {};
+    finalMediaCols.forEach(col => {
+      const conf = mediaPriorConfig[col] || {};
+      priorConfig[col] = {
+        category: conf.category || 'none',
+        mixRatio: conf.mixRatio || 0,
+        dashboardRoas: conf.dashboardRoas ? parseFloat(conf.dashboardRoas) / 100 : null // % → 소수
+      };
+    });
+
+    onAnalysisComplete(parsedData, dateCol, kpiCol, finalMediaCols, extraCols, selectedKpiType, priorConfig);
+  };
+
+  // Category display helpers
+  const categoryOptions = Object.entries(MEDIA_CATEGORIES).map(([key, val]) => ({
+    value: key,
+    label: val.label
+  }));
+
+  const hasMixSlider = (category) => category === 'keyword_search' || category === 'display_conversion';
+  const getMixSliderLabel = (category) => {
+    if (category === 'keyword_search') return '브랜드 키워드 유입 비중';
+    if (category === 'display_conversion') return '리타겟팅 비중';
+    return '';
   };
 
   return (
@@ -322,19 +392,19 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
               </div>
             </div>
 
-            {/* Media Spend Columns Checkboxes */}
+            {/* Media Spend Columns with Prior Configuration */}
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                📢 광고 매체 비용(Spend) 선택 & 노출/클릭 매핑
+                📢 광고 매체 비용(Spend) 선택 & 성과 보정 설정
               </label>
-              <div className="max-h-64 overflow-y-auto p-2 bg-slate-800/80 rounded-lg border border-slate-700 space-y-2">
+              <div className="max-h-[480px] overflow-y-auto p-2 bg-slate-800/80 rounded-lg border border-slate-700 space-y-2">
                 {columns.filter(c => {
-                  // Collect all currently mapped impression and click columns
                   const mappedExtraCols = Object.values(extraMediaCols).flatMap(val => [val?.impressions, val?.clicks]).filter(Boolean);
                   return c !== dateCol && c !== kpiCol && !promoCols.includes(c) && c !== geoCol && !mappedExtraCols.includes(c);
                 }).map(col => {
                   const isChecked = selectedMediaCols.includes(col);
                   const mappedExtraCols = Object.values(extraMediaCols).flatMap(val => [val?.impressions, val?.clicks]).filter(Boolean);
+                  const priorConf = mediaPriorConfig[col] || { category: 'none', mixRatio: 0, dashboardRoas: '' };
                   
                   return (
                     <div key={col} className={`flex flex-col gap-2 p-3 rounded-lg transition ${isChecked ? 'bg-blue-900/20 border border-blue-500/30' : 'hover:bg-slate-700/50 border border-transparent'}`}>
@@ -349,23 +419,75 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
                       </label>
                       
                       {isChecked && (
-                        <div className="pl-6 grid grid-cols-2 gap-2 mt-1">
-                          <select
-                            value={extraMediaCols[col]?.impressions || ''}
-                            onChange={(e) => handleExtraMediaChange(col, 'impressions', e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-700 rounded p-1 text-[10px] text-slate-300 focus:outline-none"
-                          >
-                            <option value="">노출수 매핑 안함</option>
-                            {columns.filter(c => c !== col && (!mappedExtraCols.includes(c) || c === extraMediaCols[col]?.impressions)).map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                          <select
-                            value={extraMediaCols[col]?.clicks || ''}
-                            onChange={(e) => handleExtraMediaChange(col, 'clicks', e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-700 rounded p-1 text-[10px] text-slate-300 focus:outline-none"
-                          >
-                            <option value="">클릭수 매핑 안함</option>
-                            {columns.filter(c => c !== col && (!mappedExtraCols.includes(c) || c === extraMediaCols[col]?.clicks)).map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
+                        <div className="pl-6 space-y-3 mt-1">
+                          {/* Row 1: Impressions/Clicks Mapping (existing) */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <select
+                              value={extraMediaCols[col]?.impressions || ''}
+                              onChange={(e) => handleExtraMediaChange(col, 'impressions', e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 rounded p-1 text-[10px] text-slate-300 focus:outline-none"
+                            >
+                              <option value="">노출수 매핑 안함</option>
+                              {columns.filter(c => c !== col && (!mappedExtraCols.includes(c) || c === extraMediaCols[col]?.impressions)).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <select
+                              value={extraMediaCols[col]?.clicks || ''}
+                              onChange={(e) => handleExtraMediaChange(col, 'clicks', e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 rounded p-1 text-[10px] text-slate-300 focus:outline-none"
+                            >
+                              <option value="">클릭수 매핑 안함</option>
+                              {columns.filter(c => c !== col && (!mappedExtraCols.includes(c) || c === extraMediaCols[col]?.clicks)).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </div>
+                          
+                          {/* Row 2: [NEW] Prior Configuration - Category & Calibration */}
+                          <div className="bg-slate-900/80 rounded-lg p-3 border border-slate-700/50 space-y-3">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <SlidersHorizontal className="w-3 h-3 text-violet-400" />
+                              <span className="text-[10px] font-semibold text-violet-300 uppercase tracking-wider">Meridian 사전 확률 보정</span>
+                            </div>
+                            
+                            {/* Category Dropdown */}
+                            <div>
+                              <label className="block text-[10px] text-slate-400 mb-1">매체 카테고리</label>
+                              <select
+                                value={priorConf.category}
+                                onChange={(e) => handlePriorCategoryChange(col, e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-600 rounded-md px-2.5 py-1.5 text-[11px] text-white focus:outline-none focus:border-violet-500 transition"
+                              >
+                                {categoryOptions.map(opt => (
+                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Conditional Mix Ratio Slider */}
+                            {hasMixSlider(priorConf.category) && (
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-[10px] text-slate-400">{getMixSliderLabel(priorConf.category)}</label>
+                                  <span className="text-[11px] font-bold text-violet-300 tabular-nums">
+                                    {Math.round((priorConf.mixRatio || 0) * 100)}%
+                                  </span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="100"
+                                  step="5"
+                                  value={Math.round((priorConf.mixRatio || 0) * 100)}
+                                  onChange={(e) => handlePriorMixRatioChange(col, e.target.value)}
+                                  className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                />
+                                <div className="flex justify-between text-[9px] text-slate-500 mt-0.5">
+                                  <span>0%</span>
+                                  <span>50%</span>
+                                  <span>100%</span>
+                                </div>
+                              </div>
+                            )}
+
+                          </div>
                         </div>
                       )}
                     </div>
