@@ -79,51 +79,55 @@ export default function App() {
 
   const runDemoAnalysis = () => {
     setIsLoading(true);
-    setTimeout(() => {
-      try {
-        const sampleData = generateSampleMMMData(selectedKpi);
-        const kpiColName = getKpiColName(selectedKpi);
-        
-        const res = runMMMAnalysis(
-          sampleData, 
-          '일자', 
-          kpiColName, 
-          ['(Meta) 광고비', '(Google) 광고비', '(Naver) 광고비', '(Kakao) 광고비'],
-          {
-            promoCols: ['프로모션A (여름)', '프로모션B (할인)', '프로모션C (연말)'],
-            '(Meta) 광고비_impressions': '(Meta) 노출수',
-            '(Meta) 광고비_clicks': '(Meta) 클릭수',
-            '(Google) 광고비_impressions': '(Google) 노출수',
-            '(Google) 광고비_clicks': '(Google) 클릭수',
-            '(Naver) 광고비_impressions': '(Naver) 노출수',
-            '(Naver) 광고비_clicks': '(Naver) 클릭수',
-            '(Kakao) 광고비_impressions': '(Kakao) 노출수',
-            '(Kakao) 광고비_clicks': '(Kakao) 클릭수'
-          },
-          selectedKpi
-        );
-        setMmmResult(res);
-      } catch (err) {
-        console.error("Demo analysis error:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 400);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        try {
+          const sampleData = generateSampleMMMData(selectedKpi);
+          const kpiColName = getKpiColName(selectedKpi);
+          
+          const res = runMMMAnalysis(
+            sampleData, 
+            '일자', 
+            kpiColName, 
+            ['(Meta) 광고비', '(Google) 광고비', '(Naver) 광고비', '(Kakao) 광고비'],
+            {
+              promoCols: ['프로모션A (여름)', '프로모션B (할인)', '프로모션C (연말)'],
+              '(Meta) 광고비_impressions': '(Meta) 노출수',
+              '(Meta) 광고비_clicks': '(Meta) 클릭수',
+              '(Google) 광고비_impressions': '(Google) 노출수',
+              '(Google) 광고비_clicks': '(Google) 클릭수',
+              '(Naver) 광고비_impressions': '(Naver) 노출수',
+              '(Naver) 광고비_clicks': '(Naver) 클릭수',
+              '(Kakao) 광고비_impressions': '(Kakao) 노출수',
+              '(Kakao) 광고비_clicks': '(Kakao) 클릭수'
+            },
+            selectedKpi
+          );
+          setMmmResult(res);
+        } catch (err) {
+          console.error("Demo analysis error:", err);
+        } finally {
+          setIsLoading(false);
+        }
+      }, 100);
+    });
   };
 
   const handleCustomAnalysis = (parsedData, dateCol, kpiCol, selectedMediaCols, extraCols = {}, kpiType = 'revenue', mediaPriorConfig = {}) => {
     setIsLoading(true);
-    setTimeout(() => {
-      try {
-        const res = runMMMAnalysis(parsedData, dateCol, kpiCol, selectedMediaCols, extraCols, kpiType, mediaPriorConfig);
-        setMmmResult(res);
-      } catch (err) {
-        console.error("Analysis Error:", err);
-        alert('분석 중 오류가 발생했습니다: ' + err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 400);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        try {
+          const res = runMMMAnalysis(parsedData, dateCol, kpiCol, selectedMediaCols, extraCols, kpiType, mediaPriorConfig);
+          setMmmResult(res);
+        } catch (err) {
+          console.error("Analysis Error:", err);
+          alert('분석 중 오류가 발생했습니다: ' + err.message);
+        } finally {
+          setIsLoading(false);
+        }
+      }, 100);
+    });
   };
 
   const getKpiColName = (type) => {
