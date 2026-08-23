@@ -15,17 +15,67 @@ import KpiSelectionScreen from './components/KpiSelectionScreen';
 import { runMMMAnalysis } from './engine/mmmEngine';
 import { generateSampleMMMData } from './utils/sampleDataGenerator';
 
+const VALID_KPIS = ['revenue', 'purchase', 'traffic', 'install', 'lead'];
+
+const getInitialKpiFromUrl = () => {
+  try {
+    // 1. Check clean path URL (e.g. /revenue or /kpi/revenue)
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+    if (VALID_KPIS.includes(path)) return path;
+    if (path.startsWith('kpi/')) {
+      const sub = path.split('/')[1];
+      if (VALID_KPIS.includes(sub)) return sub;
+    }
+    // 2. Fallback to query parameter (e.g. ?kpi=revenue)
+    const params = new URLSearchParams(window.location.search);
+    const kpiParam = params.get('kpi');
+    if (kpiParam && VALID_KPIS.includes(kpiParam.toLowerCase())) {
+      return kpiParam.toLowerCase();
+    }
+  } catch (e) {
+    console.error("URL parsing error:", e);
+  }
+  return null;
+};
+
 export default function App() {
   const [isExcelGuideOpen, setIsExcelGuideOpen] = useState(false);
   const [mmmResult, setMmmResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [selectedKpi, setSelectedKpi] = useState(null); // null means show KPI selection screen
+  const [selectedKpi, setSelectedKpi] = useState(getInitialKpiFromUrl);
+
+  const updateUrlKpi = (kpiType) => {
+    try {
+      const newPath = kpiType ? `/${kpiType}` : '/';
+      window.history.pushState({ kpi: kpiType }, '', newPath);
+    } catch (e) {
+      console.error("URL update error:", e);
+    }
+  };
+
+  const handleSelectKpi = (kpiType) => {
+    setSelectedKpi(kpiType);
+    updateUrlKpi(kpiType);
+  };
 
   const handleResetKpi = () => {
     setSelectedKpi(null);
     setMmmResult(null);
+    updateUrlKpi(null);
   };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const initialKpi = getInitialKpiFromUrl();
+      setSelectedKpi(initialKpi);
+      if (!initialKpi) {
+        setMmmResult(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const runDemoAnalysis = () => {
     setIsLoading(true);
@@ -87,67 +137,72 @@ export default function App() {
     }
   };
 
-  if (!selectedKpi) {
-    return <KpiSelectionScreen onSelectKpi={setSelectedKpi} />;
-  }
-
   return (
     <ErrorBoundary>
-      <div className="min-h-screen pb-16">
-        
-        {/* Header */}
-        <Header 
-          onOpenExcelGuide={() => setIsExcelGuideOpen(true)}
-          onRunDemo={runDemoAnalysis}
-          onResetKpi={handleResetKpi}
-        />
+      <div className="min-h-screen flex flex-col justify-between">
+        <div>
+          {/* Unified Header (Hides quick action buttons on KPI Selection Screen) */}
+          <Header 
+            onOpenExcelGuide={() => setIsExcelGuideOpen(true)}
+            onRunDemo={runDemoAnalysis}
+            onResetKpi={handleResetKpi}
+            hideActions={!selectedKpi}
+          />
 
-        {/* Main Container */}
-        <main className="max-w-7xl mx-auto px-4 sm:6">
-         {/* Dashboard Content */}
-          <div className="animate-fadeIn mb-8">
-            <FileUpload 
-              onAnalysisComplete={handleCustomAnalysis} 
-              onOpenExcelGuide={() => setIsExcelGuideOpen(true)}
-              onLoadDemo={runDemoAnalysis}
-              selectedKpiType={selectedKpi}
-            />
-          </div>
-          {/* Loading Spinner Indicator */}
-          {isLoading && (
-            <div className="glass-panel rounded-2xl p-12 mb-8 border border-slate-800 text-center flex flex-col items-center justify-center animate-pulse">
-              <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mb-4" />
-              <p className="text-sm font-bold text-white">Meridian 딥 머신러닝 회귀 엔진 구동 중...</p>
-              <p className="text-xs text-slate-400 mt-1">Adstock 반감기 수명, Hill 포화 곡선, mROAS 및 95% 베이지안 신뢰구간을 산출하고 있습니다.</p>
-            </div>
-          )}
+          {/* Main Container */}
+          <main className="max-w-7xl mx-auto px-4 sm:px-6">
+            {!selectedKpi ? (
+              <KpiSelectionScreen onSelectKpi={handleSelectKpi} />
+            ) : (
+              <>
+                {/* File Upload Section */}
+                <div className="animate-fadeIn mb-8">
+                  <FileUpload 
+                    onAnalysisComplete={handleCustomAnalysis} 
+                    onOpenExcelGuide={() => setIsExcelGuideOpen(true)}
+                    onLoadDemo={runDemoAnalysis}
+                    selectedKpiType={selectedKpi}
+                  />
+                </div>
 
-          {/* Analysis Dashboard Results */}
-          {!isLoading && mmmResult && (
-            <div className="animate-fadeIn space-y-2">
-              {/* Top KPI Metrics Overview */}
-              <MetricsOverview mmmResult={mmmResult} />
+                {/* Loading Spinner Indicator */}
+                {isLoading && (
+                  <div className="glass-panel rounded-2xl p-12 mb-8 border border-slate-800 text-center flex flex-col items-center justify-center animate-pulse">
+                    <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mb-4" />
+                    <p className="text-sm font-bold text-white">Meridian 베이지안 회귀 엔진 구동 중...</p>
+                    <p className="text-xs text-slate-400 mt-1">Adstock 반감기 수명, Hill 포화 곡선, mROAS 및 95% 베이지안 신뢰구간을 산출하고 있습니다.</p>
+                  </div>
+                )}
 
-              {/* Time Series Model Fit Chart */}
-              <ModelFitChart mmmResult={mmmResult} />
+                {/* Analysis Dashboard Results */}
+                {!isLoading && mmmResult && (
+                  <div className="animate-fadeIn space-y-2">
+                    {/* Top KPI Metrics Overview */}
+                    <MetricsOverview mmmResult={mmmResult} />
 
-              {/* Meridian Grade Deep Analytics 5-Tab System */}
-              <DeepAnalyticsContainer mmmResult={mmmResult} />
+                    {/* Time Series Model Fit Chart */}
+                    <ModelFitChart mmmResult={mmmResult} />
 
-              {/* Contribution & Channel ROAS Breakdown */}
-              <ContributionChart mmmResult={mmmResult} />
+                    {/* Meridian Grade Deep Analytics 5-Tab System */}
+                    <DeepAnalyticsContainer mmmResult={mmmResult} />
 
-              {/* User Requested Seasonality Breakdown Chart */}
-              <SeasonalityChart mmmResult={mmmResult} />
+                    {/* Contribution & Channel ROAS Breakdown */}
+                    <ContributionChart mmmResult={mmmResult} />
 
-              {/* Budget Optimization Simulator */}
-              <BudgetSimulator mmmResult={mmmResult} />
+                    {/* User Requested Seasonality Breakdown Chart */}
+                    <SeasonalityChart mmmResult={mmmResult} />
 
-              {/* Automated Marketing Analyst Report */}
-              <AnalystReport mmmResult={mmmResult} />
-            </div>
-          )}
-        </main>
+                    {/* Budget Optimization Simulator */}
+                    <BudgetSimulator mmmResult={mmmResult} />
+
+                    {/* Automated Marketing Analyst Report */}
+                    <AnalystReport mmmResult={mmmResult} />
+                  </div>
+                )}
+              </>
+            )}
+          </main>
+        </div>
 
         {/* Recommended Excel Guide Modal */}
         <ExcelGuideModal 
@@ -156,8 +211,8 @@ export default function App() {
           selectedKpiType={selectedKpi || 'revenue'}
         />
 
-        {/* Footer */}
-        <footer className="text-center text-xs text-slate-500 py-6 border-t border-slate-900">
+        {/* Unified Footer (Pushed to bottom cleanly with mt-auto) */}
+        <footer className="text-center text-xs text-slate-500 py-6 border-t border-slate-900 mt-auto">
           MMM Intelligence Studio &copy; {new Date().getFullYear()} — Powered by Google Meridian Analytics Engine
         </footer>
 

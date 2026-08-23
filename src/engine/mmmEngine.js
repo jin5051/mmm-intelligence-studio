@@ -379,9 +379,10 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
     return day > lastDay - 5 ? 1 : 0;
   });
 
-  // ---- [NEW] Knot-based Piecewise Linear Spline Baseline ----
-  // 겨울철 등 계절성 더미 변수가 효과를 가질 수 있도록 매듭 간격을 늘립니다 (최소 60일)
-  const knotInterval = Math.max(60, Math.round(N / 6));
+  // ---- [NEW] Dynamic Knot-based Piecewise Linear Spline Baseline ----
+  // 데이터 일수(N)에 따라 30일(최소)~60일(최대) 범위 내에서 Knot 매듭 간격을 유동적으로 산출
+  const calculatedInterval = Math.round(N / 8);
+  const knotInterval = Math.max(30, Math.min(60, calculatedInterval));
   const { knotFeatures, numKnots, knotIndices } = generateKnotBaseline(N, knotInterval);
 
   // ---- Media Raw Data Collection ----
@@ -433,8 +434,8 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
   }
 
   // ---- Design Matrix Setup ----
-  const seasonalityFeatureNames = ['주말(Weekend)', '봄(Spring)', '여름(Summer)', '가을(Autumn)', '겨울(Winter)', '월초(Early)', '월말(Late)'];
-  const seasonalityMatrixCols = [isWeekendArr, isSpringArr, isSummerArr, isAutumnArr, isWinterArr, isEarlyMonthArr, isLateMonthArr];
+  const seasonalityFeatureNames = ['주말(Weekend)', '월초(Early)', '월말(Late)'];
+  const seasonalityMatrixCols = [isWeekendArr, isEarlyMonthArr, isLateMonthArr];
   
   // Knot feature names
   const knotFeatureNames = [];
@@ -933,14 +934,51 @@ export function runMMMAnalysis(rawData, dateCol, kpiCol, mediaCols, extraCols = 
     };
   });
 
-  // ---- Seasonality & Baseline Effects ----
+  // ---- Seasonality & Baseline Effects Derived from Knot Baseline Curve ----
+  // Knot 스플라인 베이스라인 곡선(Baseline(t))으로부터 계절별 평균 변동 비율을 도출하여
+  // 더미 변수 간 다중공선성 충돌 없이 데이터 진실에 부합하는 계절성 비중을 산출합니다.
+  const activeKnotNames = Object.keys(coefficients).filter(k => k.startsWith('Knot_'));
+  const dailyBaseline = [];
+  for (let i = 0; i < N; i++) {
+    let baseVal = coefficients['Intercept'] || 0;
+    activeKnotNames.forEach((kName, kIdx) => {
+      baseVal += knotFeatures[i][kIdx] * (coefficients[kName] || 0);
+    });
+    dailyBaseline.push(baseVal);
+  }
+  const meanBaseline = dailyBaseline.reduce((a, b) => a + b, 0) / (N || 1);
+
+  const seasonBaselines = { Spring: [], Summer: [], Autumn: [], Winter: [] };
+  dates.forEach((d, i) => {
+    let monthVal = 1;
+    if (typeof d === 'string' && d.length >= 7) {
+      monthVal = parseInt(d.substring(5, 7), 10);
+    }
+    if (monthVal >= 3 && monthVal <= 5) seasonBaselines.Spring.push(dailyBaseline[i]);
+    else if (monthVal >= 6 && monthVal <= 8) seasonBaselines.Summer.push(dailyBaseline[i]);
+    else if (monthVal >= 9 && monthVal <= 11) seasonBaselines.Autumn.push(dailyBaseline[i]);
+    else seasonBaselines.Winter.push(dailyBaseline[i]);
+  });
+
+  const calcSeasonAvg = (arr) => arr.length > 0 ? (arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+
+  const springAvg = calcSeasonAvg(seasonBaselines.Spring);
+  const summerAvg = calcSeasonAvg(seasonBaselines.Summer);
+  const autumnAvg = calcSeasonAvg(seasonBaselines.Autumn);
+  const winterAvg = calcSeasonAvg(seasonBaselines.Winter);
+
+  const springEffectRatio = springAvg !== null ? ((springAvg - meanBaseline) / (meanY || 1)) * 100 : 0;
+  const summerEffectRatio = summerAvg !== null ? ((summerAvg - meanBaseline) / (meanY || 1)) * 100 : 0;
+  const autumnEffectRatio = autumnAvg !== null ? ((autumnAvg - meanBaseline) / (meanY || 1)) * 100 : 0;
+  const winterEffectRatio = winterAvg !== null ? ((winterAvg - meanBaseline) / (meanY || 1)) * 100 : 0;
+
   const seasonalityEffects = {
     trendRatio: 0, // Knot 베이스라인으로 대체됨 (별도 추세 계수 없음)
     weekendEffectRatio: coefficients['주말(Weekend)'] ? (coefficients['주말(Weekend)'] / meanY) * 100 : 0,
-    springEffectRatio: coefficients['봄(Spring)'] ? (coefficients['봄(Spring)'] / meanY) * 100 : 0,
-    summerEffectRatio: coefficients['여름(Summer)'] ? (coefficients['여름(Summer)'] / meanY) * 100 : 0,
-    autumnEffectRatio: coefficients['가을(Autumn)'] ? (coefficients['가을(Autumn)'] / meanY) * 100 : 0,
-    winterEffectRatio: coefficients['겨울(Winter)'] ? (coefficients['겨울(Winter)'] / meanY) * 100 : 0,
+    springEffectRatio,
+    summerEffectRatio,
+    autumnEffectRatio,
+    winterEffectRatio,
     earlyMonthEffectRatio: coefficients['월초(Early)'] ? (coefficients['월초(Early)'] / meanY) * 100 : 0,
     lateMonthEffectRatio: coefficients['월말(Late)'] ? (coefficients['월말(Late)'] / meanY) * 100 : 0,
     friSunEffectRatio: coefficients['주말(Weekend)'] ? (coefficients['주말(Weekend)'] / meanY) * 120 : 0

@@ -1,7 +1,7 @@
 import React from 'react';
 import { BarChart3, FileSpreadsheet, Sparkles, CalendarCheck } from 'lucide-react';
 
-export default function Header({ onOpenExcelGuide, onRunDemo, onResetKpi }) {
+export default function Header({ onOpenExcelGuide, onRunDemo, onResetKpi, hideActions = false }) {
   return (
     <header className="sticky top-0 z-30 glass-panel border-b border-slate-800 px-6 py-4 mb-8">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
@@ -26,24 +26,26 @@ export default function Header({ onOpenExcelGuide, onRunDemo, onResetKpi }) {
           </div>
         </div>
 
-        {/* Quick Action Buttons */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onOpenExcelGuide}
-            className="px-4 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition flex items-center gap-2"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-            엑셀 포맷 추천 가이드
-          </button>
-          
-          <button
-            onClick={onRunDemo}
-            className="px-4 py-2 text-xs font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg shadow-md transition flex items-center gap-2 glow-blue"
-          >
-            <CalendarCheck className="w-4 h-4" />
-            샘플 데모 데이터 즉시 분석
-          </button>
-        </div>
+        {/* Quick Action Buttons (Hidden when hideActions is true) */}
+        {!hideActions && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onOpenExcelGuide}
+              className="px-4 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition flex items-center gap-2"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              엑셀 포맷 추천 가이드
+            </button>
+            
+            <button
+              onClick={onRunDemo}
+              className="px-4 py-2 text-xs font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg shadow-md transition flex items-center gap-2 glow-blue"
+            >
+              <CalendarCheck className="w-4 h-4" />
+              샘플 데모 데이터 즉시 분석
+            </button>
+          </div>
+        )}
 
       </div>
     </header>

@@ -46,7 +46,7 @@ export default function KpiSelectionScreen({ onSelectKpi }) {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+    <div className="py-8 flex flex-col items-center justify-center">
       {/* Title Section */}
       <div className="text-center mb-12 animate-fadeIn">
         <div className="inline-flex items-center justify-center p-4 bg-blue-500/10 rounded-2xl mb-6 border border-blue-500/20">
