@@ -33,7 +33,7 @@ export default function ModelFitChart({ mmmResult }) {
     labels: dates,
     datasets: [
       {
-        label: '실제 KPI (Actual)',
+        label: '실제 KPI (주별)',
         data: actualKPI,
         borderColor: '#3b82f6',
         backgroundColor: 'rgba(59, 130, 246, 0.08)',
@@ -43,7 +43,7 @@ export default function ModelFitChart({ mmmResult }) {
         fill: true
       },
       {
-        label: 'Meridian 모델 예측 KPI (Predicted)',
+        label: '모델 예측 KPI (사후평균)',
         data: predictedKPI,
         borderColor: '#a855f7',
         borderDash: [4, 4],
@@ -107,9 +107,9 @@ export default function ModelFitChart({ mmmResult }) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <LineIcon className="w-5 h-5 text-blue-400" /> 실제 KPI vs Meridian 모델 예측 시계열 비교
+            <LineIcon className="w-5 h-5 text-blue-400" /> 실제 KPI vs 모델 예측 시계열 비교 (주 단위)
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">Hill 포화 변환 + Delayed Adstock + 시즈널리티 MAP 추정치가 반영된 모델 피팅 그래프입니다.</p>
+          <p className="text-xs text-slate-400 mt-0.5">Geometric Adstock + Hill 포화 + 기저 추세(knots) + 프로모션을 MCMC로 추정한 사후평균 예측입니다. 가로축은 각 주의 시작일(월요일)입니다.</p>
         </div>
       </div>
       <div className="h-72 w-full">

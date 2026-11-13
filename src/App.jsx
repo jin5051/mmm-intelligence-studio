@@ -12,10 +12,14 @@ import AnalystReport from './components/AnalystReport';
 import ErrorBoundary from './components/ErrorBoundary';
 import KpiSelectionScreen from './components/KpiSelectionScreen';
 
-import { runMMMAnalysis } from './engine/mmmEngine';
+import { runMMMAnalysis } from './engine/bayesMmmEngine';
 import { generateSampleMMMData } from './utils/sampleDataGenerator';
 
 const VALID_KPIS = ['revenue', 'purchase', 'traffic', 'install', 'lead'];
+
+// 한국 시간(KST) 기준 현재 연도 (해가 바뀌면 자동으로 2027, 2028...)
+const getKoreaYear = () =>
+  new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', year: 'numeric' }).format(new Date());
 
 const getInitialKpiFromUrl = () => {
   try {
@@ -173,8 +177,8 @@ export default function App() {
                 {isLoading && (
                   <div className="glass-panel rounded-2xl p-12 mb-8 border border-slate-800 text-center flex flex-col items-center justify-center animate-pulse">
                     <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mb-4" />
-                    <p className="text-sm font-bold text-white">Meridian 베이지안 회귀 엔진 구동 중...</p>
-                    <p className="text-xs text-slate-400 mt-1">Adstock 반감기 수명, Hill 포화 곡선, mROAS 및 95% 베이지안 신뢰구간을 산출하고 있습니다.</p>
+                    <p className="text-sm font-bold text-white">베이지안 MMM 추정 중 (Meridian 방식)...</p>
+                    <p className="text-xs text-slate-400 mt-1">일 데이터를 주 단위로 변환한 뒤 MCMC로 ROI·Adstock·Hill 포화 곡선과 95% 신뢰구간을 계산하고 있습니다.</p>
                   </div>
                 )}
 
@@ -217,7 +221,7 @@ export default function App() {
 
         {/* Unified Footer (Pushed to bottom cleanly with mt-auto) */}
         <footer className="text-center text-xs text-slate-500 py-6 border-t border-slate-900 mt-auto">
-          MMM Intelligence Studio &copy; {new Date().getFullYear()} — Powered by Google Meridian Analytics Engine
+          MMM Intelligence Studio &copy; {getKoreaYear()} — Bayesian MMM Engine · Meridian-based Methodology
         </footer>
 
       </div>

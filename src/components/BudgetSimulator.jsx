@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sliders, RotateCcw, Sparkles, ArrowUpRight, TrendingUp } from 'lucide-react';
-import { simulateBudgetChange, optimizeBudget } from '../engine/mmmEngine';
+import { simulateBudgetChange, optimizeBudget } from '../engine/bayesMmmEngine';
 
 export default function BudgetSimulator({ mmmResult }) {
   if (!mmmResult || !mmmResult.channelMetrics) return null;
@@ -93,7 +93,7 @@ export default function BudgetSimulator({ mmmResult }) {
             <Sliders className="w-5 h-5 text-blue-400" /> 매체별 예산 재배치 시뮬레이터 (Budget Simulator)
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            매체별 예산 슬라이더를 조절하여 한계 수확 점감 곡선(Saturation)에 기반한 예상 {kpiTerms.name} 변화를 시뮬레이션하세요.
+            매체별 예산 슬라이더를 조절하여 사후분포 평균 반응곡선(Adstock + Hill 포화)에 기반한 예상 {kpiTerms.name} 변화를 시뮬레이션하세요. (분석 기간의 주별 집행 패턴은 그대로, 금액만 배수로 바뀐다고 가정)
           </p>
         </div>
 
@@ -103,14 +103,14 @@ export default function BudgetSimulator({ mmmResult }) {
             className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-semibold shadow flex items-center gap-1.5 transition glow-blue"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            AI 최적 예산 배치 추천
+            최적 예산 배분 추천 (총액 유지)
           </button>
 
           {/* Algorithm Mode Badge */}
           {optimizeMode === 'mROAS' && (
             <span className="px-2.5 py-1 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-md text-[10px] font-bold flex items-center gap-1 animate-fadeIn">
               <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-              mROAS 균등화 최적화 적용됨
+              mROAS 균등화 적용됨 (매체별 0.5~2배 범위)
             </span>
           )}
           {optimizeMode === 'heuristic' && (
@@ -151,10 +151,10 @@ export default function BudgetSimulator({ mmmResult }) {
         </div>
 
         <div className="flex flex-col">
-          <span className="text-xs text-slate-400 mb-1">예상 통합 {kpiTerms.roas}</span>
+          <span className="text-xs text-slate-400 mb-1">{mmmResult.isCpaMode ? `예상 광고 효율 (100만원당 획득 ${kpiTerms.name})` : '예상 광고 ROAS (광고 기여분 ÷ 광고비)'}</span>
           <div className="text-xl font-extrabold text-purple-400 flex items-center gap-1">
             <TrendingUp className="w-4 h-4 text-purple-400" />
-            {newOverallROAS.toFixed(2)}x
+            {mmmResult.isCpaMode ? `${newOverallROAS.toFixed(1)} ${kpiTerms.unit}` : `${newOverallROAS.toFixed(2)}x`}
           </div>
         </div>
 

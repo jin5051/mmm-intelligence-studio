@@ -240,7 +240,7 @@ export default function FunnelEfficiencyTab({ mmmResult }) {
           <Filter className="w-5 h-5 text-amber-400" /> 퍼널 지표 × {kpiTerms.name} 기여도 상관관계 분석
         </h3>
         <p className="text-xs text-slate-400">
-          매체별 퍼널 지표(노출수, 클릭수, CTR)와 Meridian 일별 {kpiTerms.name} 기여도 간 Pearson 상관계수를 산출하여, 
+          매체별 퍼널 지표(노출수, 클릭수, CTR)와 모델이 추정한 주별 {kpiTerms.name} 기여도 간 Pearson 상관계수를 산출하여, 
           어떤 퍼널 단계가 실제 {kpiTerms.name} 기여와 가장 밀접한지 분석하고 운영 전략을 제안합니다.
         </p>
 
@@ -277,13 +277,13 @@ export default function FunnelEfficiencyTab({ mmmResult }) {
       {hasFunnelData && correlationData.length > 0 && (
         <div className="glass-panel rounded-2xl p-6 border border-slate-800 shadow-xl">
           <h4 className="text-sm font-bold text-white flex items-center gap-2 mb-4">
-            <BarChart3 className="w-4 h-4 text-blue-400" /> 매체별 퍼널 지표 ↔ 일별 {kpiTerms.name} 기여도 상관계수 (Pearson r)
+            <BarChart3 className="w-4 h-4 text-blue-400" /> 매체별 퍼널 지표 ↔ 주별 {kpiTerms.name} 기여도 상관계수 (Pearson r)
           </h4>
           <div className="h-52 w-full">
             <Bar data={heatmapData} options={heatmapOptions} />
           </div>
           <p className="text-[10px] text-slate-500 mt-3">
-            ※ 양(+) 방향: 해당 지표가 높은 날 기여도도 높음 | 음(-) 방향: 반비례 | |r| ≥ 0.7: 강한 상관 | |r| ≥ 0.4: 보통 상관
+            ※ 양(+) 방향: 해당 지표가 높은 주에 기여도도 높음 | 음(-) 방향: 반비례 | |r| ≥ 0.7: 강한 상관 | |r| ≥ 0.4: 보통 상관 | 기여도는 광고비로 추정한 값이라 노출·클릭과의 상관은 광고비 규모의 영향을 많이 받습니다
           </p>
         </div>
       )}

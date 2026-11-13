@@ -1,5 +1,17 @@
 import React from 'react';
-import { FileText, CheckCircle2, AlertTriangle, Lightbulb, Sparkles } from 'lucide-react';
+import { FileText, CheckCircle2, AlertTriangle, Lightbulb, Sparkles, Shuffle, Coins, Scale, Gift, Sprout, Sun, ShieldCheck, Quote } from 'lucide-react';
+import { buildInsights } from '../utils/insightGenerator';
+
+const INSIGHT_ICONS = {
+  budget: Shuffle, next: Coins, share: Scale,
+  promo: Gift, trend: Sprout, season: Sun, trust: ShieldCheck
+};
+
+const TONE_STYLES = {
+  good: { box: 'bg-emerald-500/5 border-emerald-500/20', icon: 'text-emerald-400 bg-emerald-500/10' },
+  warn: { box: 'bg-amber-500/5 border-amber-500/20', icon: 'text-amber-400 bg-amber-500/10' },
+  info: { box: 'bg-slate-900/70 border-slate-800', icon: 'text-blue-400 bg-blue-500/10' }
+};
 
 export default function AnalystReport({ mmmResult }) {
   if (!mmmResult || !mmmResult.channelMetrics || mmmResult.channelMetrics.length === 0) return null;
@@ -31,7 +43,16 @@ export default function AnalystReport({ mmmResult }) {
   const weekendEffect = Number(seasonalityEffects?.weekendEffectRatio) || 0;
 
   const rSquaredWeekly = Number(summary?.rSquaredWeekly ?? summary?.rSquared) || 0;
-  const rSquaredDaily = Number(summary?.rSquaredDaily ?? summary?.rSquared) || 0;
+  const rhatMax = Number(summary?.rhatMax);
+
+  // 쉽게 보는 인사이트 (모델 숫자에서만 자동 생성)
+  let easy = { headline: '', insights: [] };
+  try { easy = buildInsights(mmmResult); } catch (e) { console.error('Insight error:', e); }
+
+  // Adstock 반감기(주) 요약
+  const halfLives = channelMetrics.map(m => ({ channel: m.channel, hl: Number(m.params?.halfLifeWeeks) || 0 }));
+  const longest = halfLives.reduce((a, b) => (b.hl > a.hl ? b : a), halfLives[0] || { channel: '-', hl: 0 });
+  const shortest = halfLives.reduce((a, b) => (b.hl < a.hl ? b : a), halfLives[0] || { channel: '-', hl: 0 });
 
   return (
     <div className="glass-panel rounded-2xl p-6 md:p-8 border border-slate-800 shadow-2xl mb-12">
@@ -44,14 +65,22 @@ export default function AnalystReport({ mmmResult }) {
           </div>
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">마케팅 애널리스트 자동 진단 & 인사이트 리포트</h2>
-            <p className="text-xs text-slate-400">Meridian MMM 및 시즈널리티 통제 엔진이 도출한 데이터 기반 전략 보고서</p>
+            <p className="text-xs text-slate-400">주 단위 베이지안 MMM(Meridian 방식) 사후분포에서 도출한 데이터 기반 전략 보고서</p>
           </div>
         </div>
 
         <span className="text-xs font-mono bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700">
-          신뢰도: <strong className="text-indigo-400">{(rSquaredWeekly * 100).toFixed(1)}%</strong> (주단위 R²) / <span className="text-slate-400">{(rSquaredDaily * 100).toFixed(1)}% (일단위 R²)</span>
+          설명력: <strong className="text-indigo-400">{(rSquaredWeekly * 100).toFixed(1)}%</strong> (주단위 R²){Number.isFinite(rhatMax) && <span className="text-slate-400"> / R-hat {rhatMax.toFixed(2)}</span>}
         </span>
       </div>
+
+      {/* 한 줄 요약 */}
+      {easy.headline && (
+        <div className="mb-6 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex gap-3">
+          <Quote className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-slate-100 leading-relaxed"><strong className="text-blue-300">한 줄 요약</strong> · {easy.headline}</p>
+        </div>
+      )}
 
       {/* Report Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -98,6 +127,39 @@ export default function AnalystReport({ mmmResult }) {
 
       </div>
 
+      {/* 쉽게 보는 핵심 인사이트 */}
+      {easy.insights.length > 0 && (
+        <div className="mb-8">
+          <h4 className="text-sm font-bold text-white flex items-center gap-2 mb-1">
+            <Sparkles className="w-4 h-4 text-amber-400" /> 쉽게 보는 핵심 인사이트
+          </h4>
+          <p className="text-[11px] text-slate-400 mb-4">분석 결과 숫자를 그대로 풀어 쓴 문장이에요. 초록은 좋은 신호, 주황은 확인이 필요한 부분입니다.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {easy.insights.map(item => {
+              const Icon = INSIGHT_ICONS[item.icon] || Lightbulb;
+              const tone = TONE_STYLES[item.tone] || TONE_STYLES.info;
+              return (
+                <div key={item.id} className={`p-4 rounded-xl border ${tone.box}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`p-1.5 rounded-lg ${tone.icon}`}><Icon className="w-3.5 h-3.5" /></span>
+                    <h5 className="text-xs font-bold text-white">{item.title}</h5>
+                  </div>
+                  <p className="text-xs text-slate-200 leading-relaxed">{item.text}</p>
+                  {item.lines.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {item.lines.map((line, i) => (
+                        <li key={i} className="text-[11px] text-slate-300 font-mono leading-relaxed">· {line}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {item.hint && <p className="mt-2 text-[10px] text-slate-500 leading-relaxed">💡 {item.hint}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 3. Actionable Strategic Recommendations */}
       <div className="p-6 rounded-xl bg-slate-900/90 border border-slate-800 space-y-4">
         <h4 className="text-sm font-bold text-blue-400 flex items-center gap-2 mb-2">
@@ -121,7 +183,7 @@ export default function AnalystReport({ mmmResult }) {
             <div>
               <h5 className="text-xs font-bold text-white mb-0.5">시즈널리티 타이밍 마케팅 (Seasonality Execution)</h5>
               <p className="text-xs text-slate-300 leading-relaxed">
-                주말(Weekend) 및 쇼핑 피크 구간에서 자연 발생 {kpiTerms.name}이 <strong className="text-purple-300">+{Math.abs(weekendEffect).toFixed(1)}%</strong> 상승하는 트렌드가 입증되었습니다. 목요일~금요일부터 마케팅 캠페인을 집행하는 미디어 스케줄링이 효과적입니다.
+                일 데이터 기준 주말 {kpiTerms.name}이 평일보다 <strong className="text-purple-300">{weekendEffect >= 0 ? '+' : ''}{weekendEffect.toFixed(1)}%</strong> 다릅니다. 모델은 주 단위라 요일별 광고 효율까지는 추정하지 않으므로, 주말 집중 집행은 플랫폼 요일 리포트로 효율을 함께 확인한 뒤 결정하세요.
               </p>
             </div>
           </div>
@@ -131,7 +193,7 @@ export default function AnalystReport({ mmmResult }) {
             <div>
               <h5 className="text-xs font-bold text-white mb-0.5">Adstock 이월 잔존 효과 관리 (Retention Decay Management)</h5>
               <p className="text-xs text-slate-300 leading-relaxed">
-                광고 집행 후 3~7일간 잔존 {kpiTerms.name} 발생 효과(Adstock)가 유지되므로, 매일 동일 예산을 집행하기보다 시즈널리티 피크 2~3일 전에 예산을 집중 집행하는 파동형(Pulsing) 예산 스케줄링을 권장합니다.
+                효과 반감기가 가장 긴 매체는 <strong className="text-emerald-300">{longest.channel}</strong>({longest.hl.toFixed(1)}주), 가장 짧은 매체는 <strong className="text-emerald-300">{shortest.channel}</strong>({shortest.hl.toFixed(1)}주)입니다. 반감기가 1주 이상인 매체는 집행을 멈춘 뒤에도 효과가 이어지므로 단기 성과만 보고 끄지 말고, 반감기가 짧은 매체는 성수기 주에 맞춰 집중 집행하는 편이 유리합니다.
               </p>
             </div>
           </div>

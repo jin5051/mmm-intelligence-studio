@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, Check, Sparkles, AlertCircle, ArrowRight, Info, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { generateSampleMMMData } from '../utils/sampleDataGenerator';
-import { MEDIA_CATEGORIES } from '../engine/mmmEngine';
+import { MEDIA_CATEGORIES } from '../engine/bayesMmmEngine';
 
 export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoadDemo, selectedKpiType }) {
   const [fileName, setFileName] = useState('');
@@ -297,7 +297,8 @@ export default function FileUpload({ onAnalysisComplete, onOpenExcelGuide, onLoa
         <div className="text-xs text-slate-300 leading-relaxed">
           <p className="font-semibold text-indigo-300 mb-1">💡 원활한 모델 학습을 위한 엑셀 작성 가이드</p>
           <ul className="list-disc pl-4 space-y-1">
-            <li><strong>최소 필요 데이터:</strong> 시즈널리티(계절성) 분석을 위해 가급적 <strong>최소 1년(52주) 이상</strong>의 데이터를 권장합니다.</li>
+            <li><strong>최소 필요 데이터:</strong> 시즈널리티(계절성) 분석을 위해 가급적 <strong>최소 1년(52주) 이상</strong>의 데이터를 권장합니다. (8주 미만은 분석 불가)</li>
+            <li><strong>일 단위로 넣으면 됩니다:</strong> 하루 1행으로 올리면 분석할 때 <strong>주 단위(월~일)로 자동 합산</strong>합니다. 7일이 안 되는 첫 주·마지막 주는 제외됩니다.</li>
             <li><strong>매체명 자동 묶음:</strong> 매체명은 괄호로 묶어야 합니다. <em>(예: <code>(meta) 광고비</code>, <code>(meta) 노출수</code>, <code>(meta) 클릭수</code>)</em></li>
             <li><strong>빈 셀 자동 처리:</strong> 데이터가 없는 공백이나 Null 값은 시스템이 자동으로 0으로 전처리하므로 신경쓰지 않으셔도 됩니다.</li>
           </ul>

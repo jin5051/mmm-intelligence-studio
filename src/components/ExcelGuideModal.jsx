@@ -59,7 +59,9 @@ export default function ExcelGuideModal({ isOpen, onClose, selectedKpiType = 're
             원활하고 신뢰성 있는 MMM 회귀 분석을 위해서는 <strong>충분한 시계열 데이터</strong>가 필요합니다.
           </p>
           <ul className="list-disc list-inside text-xs text-slate-400 space-y-1 ml-2">
-            <li><strong>최소 권장 기간:</strong> <strong>최소 1년(52주)</strong> 이상의 일별(Daily) 또는 주별(Weekly) 데이터를 권장합니다.</li>
+            <li><strong>최소 권장 기간:</strong> <strong>최소 1년(52주)</strong> 이상을 권장합니다. 8주 미만은 분석할 수 없습니다.</li>
+            <li><strong>입력 단위:</strong> <strong>일 단위(하루 1행)</strong>로 올리면 분석할 때 자동으로 <strong>주 단위(월~일)</strong>로 합산합니다. 첫 주·마지막 주가 7일이 안 되면 제외하고, 같은 날짜가 여러 행이면 합산합니다. 이미 주 단위로 만든 파일도 그대로 올리면 됩니다.</li>
+            <li><strong>광고비 변화:</strong> 주마다 광고비가 거의 같으면 효과를 구분하기 어렵습니다. 증액·감액·중단한 주가 섞여 있을수록 결과가 정확해집니다.</li>
             <li><strong>이유:</strong> 시즈널리티(계절성) 및 매체별 이월 효과(Adstock)를 통계적으로 유의미하게 파악하려면 사계절을 모두 포함하는 데이터가 있어야 합니다.</li>
             <li>데이터 기간이 짧을 경우(예: 3~6개월), 모델의 신뢰구간(95% CI)이 넓어지고 한계 기여도 예측의 오차가 커질 수 있습니다.</li>
           </ul>
@@ -139,10 +141,10 @@ export default function ExcelGuideModal({ isOpen, onClose, selectedKpiType = 're
         {/* Section 2: Seasonality Auto Feature Engineering */}
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-purple-400 flex items-center gap-2 mb-3">
-            <Sparkles className="w-4 h-4" /> 3. 자동 추출되는 4대 시즈널리티(Seasonality) 파생 변수
+            <Sparkles className="w-4 h-4" /> 3. 날짜만 있으면 자동으로 처리되는 항목
           </h3>
           <p className="text-xs text-slate-300 mb-4 leading-relaxed">
-            사용자가 엑셀에 시즈널리티 컬럼을 직접 넣지 않아도, **MMM 엔진이 <code>date</code> 컬럼을 분석하여** 아래의 통계 제어 변수를 회귀 모델에 자동으로 합성합니다:
+            계절성 컬럼을 따로 넣지 않아도 엔진이 날짜를 이용해 아래를 처리합니다:
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -152,8 +154,8 @@ export default function ExcelGuideModal({ isOpen, onClose, selectedKpiType = 're
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white mb-1">📅 월별 시즈널리티 (Month Seasonality)</h4>
-                <p className="text-[11px] text-slate-400">1월~12월 계절에 따른 {kpiName} 변동 요인(예: 겨울 12월 크리스마스 효과, 여름 7월 휴가철 효과)을 머신러닝이 자동 분리합니다.</p>
+                <h4 className="text-xs font-bold text-white mb-1">📈 기저 추세 (Knots)</h4>
+                <p className="text-[11px] text-slate-400">약 12주 간격의 매듭(knot)을 선으로 잇는 기저선으로 성장 추세와 계절 변동을 흡수해, 성수기 매출이 광고 효과로 잘못 잡히는 것을 줄입니다 (Meridian 방식).</p>
               </div>
             </div>
 
@@ -162,8 +164,8 @@ export default function ExcelGuideModal({ isOpen, onClose, selectedKpiType = 're
                 <Layers className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white mb-1">🏖️ 계절별 변수 (Spring/Summer/Autumn/Winter)</h4>
-                <p className="text-[11px] text-slate-400">봄(3~5월), 여름(6~8월), 가을(9~11월), 겨울(12~2월) 계절적 변동을 모델의 Baseline 변동에 반영하여 순수 광고 성과를 왜곡 없이 추정합니다.</p>
+                <h4 className="text-xs font-bold text-white mb-1">🏖️ 계절별 기저선 비교 (봄/여름/가을/겨울)</h4>
+                <p className="text-[11px] text-slate-400">모델이 추정한 기저선(광고 제외)을 봄(3~5월)·여름(6~8월)·가을(9~11월)·겨울(12~2월)별로 평균 내 계절별 자연 발생 수준을 보여줍니다.</p>
               </div>
             </div>
 
@@ -172,8 +174,8 @@ export default function ExcelGuideModal({ isOpen, onClose, selectedKpiType = 're
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white mb-1">🍻 주중 vs 주말 (Weekend Effect)</h4>
-                <p className="text-[11px] text-slate-400">토/일요일에 자연 발생하는 {kpiName}을 자동으로 분리하여, 주말 광고 집행 성과가 과대평가되는 것을 방지합니다.</p>
+                <h4 className="text-xs font-bold text-white mb-1">🍻 주말·월초·월말 패턴 (참고 지표)</h4>
+                <p className="text-[11px] text-slate-400">일 데이터에서 요일별·날짜별 {kpiName} 패턴을 따로 계산합니다. 주 단위 합계에서는 요일 차이가 상쇄되므로 모델 계산에는 들어가지 않는 참고 지표입니다.</p>
               </div>
             </div>
 
@@ -182,8 +184,8 @@ export default function ExcelGuideModal({ isOpen, onClose, selectedKpiType = 're
                 <Layers className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white mb-1">🗓️ 요일별 및 주말 이월 (Day-of-Week Effect)</h4>
-                <p className="text-[11px] text-slate-400">월요일부터 일요일까지 요일별 구매 행동 패턴을 독립 계수로 산출하여 마케터에게 최고의 광고 요일을 안내합니다.</p>
+                <h4 className="text-xs font-bold text-white mb-1">🗓️ 프로모션 주간 환산</h4>
+                <p className="text-[11px] text-slate-400">일별 프로모션 표시(0/1)는 주마다 진행한 일수(0~7일)로 바꿔 모델에 넣고, 프로모션 1일당 효과와 전체 기여를 추정합니다.</p>
               </div>
             </div>
 

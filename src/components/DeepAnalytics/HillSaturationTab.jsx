@@ -28,6 +28,7 @@ export default function HillSaturationTab({ mmmResult }) {
     if (kpiTerms.unit === '₩') return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(val || 0);
     return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(val || 0) + ' ' + kpiTerms.unit;
   };
+  const formatSpend = (val) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(val || 0);
 
   // Colors for channels
   const colors = [
@@ -94,11 +95,11 @@ export default function HillSaturationTab({ mmmResult }) {
       {/* Header Info */}
       <div className="p-5 bg-slate-900/90 rounded-2xl border border-slate-800">
         <h3 className="text-base font-bold text-white flex items-center gap-2 mb-1">
-          <TrendingUp className="w-5 h-5 text-indigo-400" /> Meridian Exact Hill 포화 곡선
+          <TrendingUp className="w-5 h-5 text-indigo-400" /> Hill 포화 반응 곡선 (사후평균)
         </h3>
         <p className="text-xs text-slate-400">
-          Meridian의 <span className="font-mono text-blue-400">x^α / (x^α + K^α)</span> 수식을 통해 매체별 한계효용을 정확히 모델링합니다. 
-          α는 형태(Shape), K는 반포화 지점(EC50)을 의미합니다.
+          Meridian 기본값과 같이 <span className="font-mono text-blue-400">x / (x + K)</span> (기울기 α = 1 고정) 형태의 Hill 곡선을 사용합니다. 
+          곡선은 분석 기간 전체 광고비를 0~200%로 바꿨을 때의 예상 기여분이며, MCMC 사후표본 평균입니다.
         </p>
 
         {/* 초보자용 설명 */}
@@ -111,11 +112,11 @@ export default function HillSaturationTab({ mmmResult }) {
             </div>
             <div className="flex items-start gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 mt-1" />
-              <span><strong className="text-slate-200">α (알파, Shape)</strong> : 곡선의 모양. α &lt; 1이면 처음부터 빠르게 포화, α &gt; 1이면 초기엔 천천히 오르다 급격히 포화</span>
+              <span><strong className="text-slate-200">α (기울기)</strong> : 곡선의 모양. 주 단위 국가 단위 데이터로는 안정적으로 추정하기 어려워 Meridian 기본값처럼 1로 고정</span>
             </div>
             <div className="flex items-start gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0 mt-1" />
-              <span><strong className="text-slate-200">K (EC50, 반포화점)</strong> : 최대 효과의 절반(50%)에 도달하는 광고비 금액. K가 크면 아직 여유가 많다는 뜻</span>
+              <span><strong className="text-slate-200">K (EC50, 반포화점)</strong> : 최대 효과의 절반(50%)에 도달하는 주간 광고비(이월분 포함). K가 현재 주간 광고비보다 크면 아직 여유가 많다는 뜻</span>
             </div>
             <div className="flex items-start gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 mt-1" />
@@ -157,7 +158,7 @@ export default function HillSaturationTab({ mmmResult }) {
                     α = {alpha.toFixed(2)}
                   </span>
                   <span className="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-[10px] font-mono text-purple-300">
-                    K = {formatKpi(K)}
+                    K = 주 {formatSpend(K)}
                   </span>
                 </div>
               </div>

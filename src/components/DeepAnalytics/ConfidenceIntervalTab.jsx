@@ -25,7 +25,13 @@ ChartJS.register(
 export default function ConfidenceIntervalTab({ mmmResult }) {
   if (!mmmResult) return null;
 
-  const { dates, actualKPI, predictedKPI, yUpper95, yLower95, kpiTerms = { name: '매출액', roas: 'ROAS', unit: '₩' } } = mmmResult;
+  const { dates, actualKPI, predictedKPI, yUpper95, yLower95, channelMetrics = [], summary = {}, modelInfo = {}, isCpaMode, kpiTerms = { name: '매출액', roas: 'ROAS', unit: '₩' } } = mmmResult;
+  const fmtEff = (v) => isCpaMode
+    ? new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(Number(v) || 0) + ` ${kpiTerms.unit}`
+    : (Number(v) || 0).toFixed(2) + 'x';
+  const fmtKpi = (v) => kpiTerms.unit === '₩'
+    ? new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(v || 0)
+    : new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(v || 0) + ' ' + kpiTerms.unit;
 
   const data = {
     labels: dates,
@@ -40,7 +46,7 @@ export default function ConfidenceIntervalTab({ mmmResult }) {
         fill: false
       },
       {
-        label: 'Meridian 추정 평균 (Predicted Mean)',
+        label: '사후평균 예측 (Predicted Mean)',
         data: predictedKPI,
         borderColor: '#a855f7',
         borderDash: [4, 4],
@@ -100,11 +106,11 @@ export default function ConfidenceIntervalTab({ mmmResult }) {
       {/* Header Info */}
       <div className="p-5 bg-slate-900/90 rounded-2xl border border-slate-800">
         <h3 className="text-base font-bold text-white flex items-center gap-2 mb-1">
-          <ShieldCheck className="w-5 h-5 text-purple-400" /> Meridian MAP 추정 95% 베이지안 예측 신뢰구간 (95% CI)
+          <ShieldCheck className="w-5 h-5 text-purple-400" /> 사후분포 기반 95% 예측 구간 (MCMC)
         </h3>
         <p className="text-xs text-slate-400">
-          통계적 노이즈 및 비측정 변수를 고려한 **95% 확률 신뢰 상한/하한 구역**입니다. 
-          실제 타겟 KPI(Blue Line)가 신뢰구간 범위 내에 잘 포함되어 있는지 모델의 안정성을 검증합니다.
+          MCMC 사후표본 {modelInfo.derivedDraws || ''}개로 계산한 주별 95% 예측 구간입니다 (파라미터 불확실성 + 잡음 포함). 
+          실제 KPI가 구간 안에 들어온 비율은 <strong className="text-purple-300">{(Number(summary.ciCoverage) || 0).toFixed(0)}%</strong>이며, 95%에 가까울수록 불확실성을 제대로 표현하고 있다는 뜻입니다.
         </p>
 
         {/* 초보자용 설명 */}
@@ -142,6 +148,40 @@ export default function ConfidenceIntervalTab({ mmmResult }) {
           <Line data={data} options={options} />
         </div>
       </div>
+
+      {/* 매체별 ROI 사후분포 */}
+      {channelMetrics.length > 0 && (
+        <div className="glass-panel rounded-2xl p-6 border border-slate-800 shadow-xl">
+          <h4 className="text-sm font-bold text-white mb-1">매체별 {isCpaMode ? `효율(100만원당 ${kpiTerms.name})` : 'ROI(ROAS)'} 95% 신뢰구간</h4>
+          <p className="text-[11px] text-slate-400 mb-4">구간이 넓을수록 데이터만으로는 효과를 확신하기 어렵다는 뜻입니다. 사전분포 중앙값은 분석 전에 가정한 값입니다.<br />R-hat은 계산이 한 결과로 제대로 모였는지 보는 수렴 지표로, 1.1 이하면 신뢰할 수 있고, 넘으면(주황색) 결과가 불안정하다는 뜻입니다.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-900/80 text-slate-400 font-semibold border-b border-slate-800">
+                <tr>
+                  <th className="px-4 py-3">매체</th>
+                  <th className="px-4 py-3">추정값(평균)</th>
+                  <th className="px-4 py-3">95% 구간</th>
+                  <th className="px-4 py-3">기여 {kpiTerms.name} 95% 구간</th>
+                  <th className="px-4 py-3">사전분포 중앙값</th>
+                  <th className="px-4 py-3">R-hat</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-slate-200 font-mono">
+                {channelMetrics.map(m => (
+                  <tr key={m.channel}>
+                    <td className="px-4 py-3 font-sans font-bold">{m.channel}</td>
+                    <td className="px-4 py-3 text-emerald-400 font-bold">{fmtEff(m.avgRoas)}</td>
+                    <td className="px-4 py-3">{m.avgRoasCI ? `${fmtEff(m.avgRoasCI[0])} ~ ${fmtEff(m.avgRoasCI[1])}` : '-'}</td>
+                    <td className="px-4 py-3">{m.contribCI ? `${fmtKpi(m.contribCI[0])} ~ ${fmtKpi(m.contribCI[1])}` : '-'}</td>
+                    <td className="px-4 py-3 text-slate-400">{m.priorConfig?.roiMedian != null ? fmtEff(m.priorConfig.roiMedian) : '-'}</td>
+                    <td className={`px-4 py-3 ${Number(m.rhat) <= 1.1 ? 'text-slate-300' : 'text-amber-400'}`}>{Number.isFinite(m.rhat) ? m.rhat.toFixed(2) : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
     </div>
   );

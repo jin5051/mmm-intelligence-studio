@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, TrendingUp, CheckCircle, PieChart, Calendar } from 'lucide-react';
+import { DollarSign, TrendingUp, CheckCircle, PieChart, Calendar, Info } from 'lucide-react';
 
 export default function MetricsOverview({ mmmResult }) {
   if (!mmmResult || !mmmResult.summary) return null;
@@ -19,13 +19,19 @@ export default function MetricsOverview({ mmmResult }) {
 
   const safeNum = (val) => Number(val) || 0;
 
-  const totalROAS = Number(summary.totalROAS) || 0;
   const rSquaredWeekly = Number(summary.rSquaredWeekly ?? summary.rSquared) || 0;
-  const rSquaredDaily = Number(summary.rSquaredDaily ?? summary.rSquared) || 0;
   const baselineRatio = Number(summary.baselineRatio) || 0;
+  const modelInfo = mmmResult.modelInfo || {};
+  const warnings = modelInfo.warnings || [];
+  const rhatMax = Number(summary.rhatMax);
+  const rhatOk = Number.isFinite(rhatMax) && rhatMax <= 1.1;
+  const formatEff = (val) => isCpaMode
+    ? new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(safeNum(val)) + ` ${kpiTerms.unit || '건'}`
+    : safeNum(val).toFixed(2) + 'x';
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+    <>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
       
       {/* 1. Total KPI */}
       <div className="glass-panel glass-panel-hover rounded-2xl p-5 border border-slate-800 relative overflow-hidden">
@@ -46,19 +52,17 @@ export default function MetricsOverview({ mmmResult }) {
       <div className="glass-panel glass-panel-hover rounded-2xl p-5 border border-slate-800 relative overflow-hidden">
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-xs font-semibold text-slate-400 flex items-center gap-1">
-            <TrendingUp className="w-3 h-3"/> 종합 효율 ({isCpaMode ? '100만원당 획득' : 'ROAS'})
+            <TrendingUp className="w-3 h-3"/> 광고 증분 효율 ({isCpaMode ? '100만원당 획득' : 'ROAS'})
           </h4>
           <div className="p-2 bg-blue-500/10 text-blue-400 rounded-xl">
             <TrendingUp className="w-4 h-4" />
           </div>
         </div>
         <div className="text-lg md:text-xl font-bold text-blue-400 tracking-tight mb-1">
-          {isCpaMode 
-            ? new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(safeNum(summary.totalROAS)) + ` ${kpiTerms.unit || '건'}`
-            : safeNum(summary.totalROAS).toFixed(2) + 'x'
-          }
+          {formatEff(summary.mediaROAS ?? summary.totalROAS)}
         </div>
-        <p className="text-[11px] text-slate-400">총 집행 광고비: {formatSpend(summary.totalSpend)}</p>
+        <p className="text-[11px] text-slate-400">광고 기여분 ÷ 광고비 {formatSpend(summary.totalSpend)}</p>
+        <p className="text-[10px] text-slate-500 mt-0.5">참고: 자연 발생분 포함 전체 기준 {formatEff(summary.totalROAS)}</p>
         <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-blue-500/5 rounded-full blur-xl pointer-events-none" />
       </div>
 
@@ -74,8 +78,13 @@ export default function MetricsOverview({ mmmResult }) {
           {(rSquaredWeekly * 100).toFixed(1)}% <span className="text-xs font-semibold text-indigo-300/80">(주단위)</span>
         </div>
         <p className="text-[11px] text-slate-400">
-          회귀 모델의 실제 {kpiTerms.name} 예측 정밀도 <span className="text-slate-300 font-medium">(일단위: {(rSquaredDaily * 100).toFixed(1)}%)</span>
+          주별 실제 {kpiTerms.name} 예측 정밀도{summary.mape != null && <span className="text-slate-300 font-medium"> (평균 오차 {safeNum(summary.mape).toFixed(1)}%)</span>}
         </p>
+        {Number.isFinite(rhatMax) && (
+          <p className={`text-[10px] mt-0.5 ${rhatOk ? 'text-emerald-400' : 'text-amber-400'}`}>
+            MCMC 수렴 R-hat {rhatMax.toFixed(2)} {rhatOk ? '(양호)' : '(주의: 1.1 초과)'}
+          </p>
+        )}
         <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-indigo-500/5 rounded-full blur-xl pointer-events-none" />
       </div>
 
@@ -90,7 +99,7 @@ export default function MetricsOverview({ mmmResult }) {
         <div className="text-lg md:text-xl font-bold text-purple-400 tracking-tight mb-1">
           {baselineRatio.toFixed(1)}%
         </div>
-        <p className="text-[11px] text-slate-400">비광고 시즈널리티/브랜드 자연 발생량</p>
+        <p className="text-[11px] text-slate-400">광고가 없었어도 발생했을 분량 (추세·계절·프로모션 포함)</p>
         <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-purple-500/5 rounded-full blur-xl pointer-events-none" />
       </div>
 
@@ -103,12 +112,29 @@ export default function MetricsOverview({ mmmResult }) {
           </div>
         </div>
         <div className="text-lg md:text-xl font-bold text-amber-400 tracking-tight mb-1">
-          {summary.sampleSize || 0} 일간
+          {summary.sampleSize || 0} 주
         </div>
-        <p className="text-[11px] text-slate-400">일별 시분할 회귀 데이터 포인트</p>
+        <p className="text-[11px] text-slate-400">
+          {modelInfo.periodStart ? `${modelInfo.periodStart} ~ ${modelInfo.periodEnd}` : '주 단위 분석'}
+        </p>
+        <p className="text-[10px] text-slate-500 mt-0.5">
+          {modelInfo.inputFrequency === 'daily' ? `일 데이터 ${modelInfo.nInputDays}일 → 주 단위(월~일) 자동 변환` : '주 단위 데이터 그대로 사용'}
+        </p>
         <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-amber-500/5 rounded-full blur-xl pointer-events-none" />
       </div>
 
     </div>
+
+    {/* 데이터 처리 · 모델 주의사항 */}
+    {warnings.length > 0 && (
+      <div className="mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-100 flex gap-3">
+        <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+        <ul className="list-disc pl-4 space-y-1">
+          {warnings.map((w, i) => <li key={i}>{w}</li>)}
+        </ul>
+      </div>
+    )}
+    {warnings.length === 0 && <div className="mb-4" />}
+    </>
   );
 }

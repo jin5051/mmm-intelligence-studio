@@ -28,11 +28,11 @@ export default function SeasonalityChart({ mmmResult }) {
             <Sparkles className="w-5 h-5 text-purple-400" /> 자동 피처 엔지니어링: 시즈널리티 (Seasonality) 변수 분해 분석
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            일자(Date) 컬럼에서 자동 추출된 주말, 요일, 계절성 변수의 베이스라인 {kpiTerms.name} 영향을 분리 산출한 결과입니다.
+            계절(봄·여름·가을·겨울)은 모델이 추정한 기저선(광고 제외)에서, 주말·월초·월말은 업로드한 일 데이터의 요일·날짜별 패턴에서 계산했습니다.
           </p>
         </div>
         <span className="text-[11px] font-semibold text-purple-300 bg-purple-500/10 px-3 py-1 rounded-full border border-purple-500/20">
-          비광고 노이즈 통제 완료
+          {seasonalityEffects?.hasDailyPatterns ? '주말·월초·월말 = 일 데이터 참고 지표' : '주 단위 입력: 주말·월초·월말 계산 불가'}
         </span>
       </div>
 
@@ -52,7 +52,7 @@ export default function SeasonalityChart({ mmmResult }) {
           <div className="text-xl font-extrabold text-amber-400 mb-1">
             {safeNum(weekendEffectRatio) >= 0 ? `+${safeNum(weekendEffectRatio).toFixed(1)}%` : `${safeNum(weekendEffectRatio).toFixed(1)}%`}
           </div>
-          <p className="text-[11px] text-slate-400">평일 대비 주말의 자연 발생 {kpiTerms.name} 상승률</p>
+          <p className="text-[11px] text-slate-400">평일 대비 주말의 일평균 {kpiTerms.name} 차이 (전체 KPI 기준)</p>
         </div>
 
         {/* 2. Weekday Effect */}
@@ -84,7 +84,7 @@ export default function SeasonalityChart({ mmmResult }) {
           <div className="text-xl font-extrabold text-indigo-400 mb-1">
             {safeNum(earlyMonthEffectRatio) >= 0 ? `+${safeNum(earlyMonthEffectRatio).toFixed(1)}%` : `${safeNum(earlyMonthEffectRatio).toFixed(1)}%`}
           </div>
-          <p className="text-[11px] text-slate-400">월급일 등 월초 트래픽/구매 상승률</p>
+          <p className="text-[11px] text-slate-400">월 중순 대비 월초 일평균 차이 (요일 효과 제거)</p>
         </div>
 
         {/* 8. Late Month */}
@@ -100,7 +100,7 @@ export default function SeasonalityChart({ mmmResult }) {
           <div className="text-xl font-extrabold text-purple-400 mb-1">
             {safeNum(lateMonthEffectRatio) >= 0 ? `+${safeNum(lateMonthEffectRatio).toFixed(1)}%` : `${safeNum(lateMonthEffectRatio).toFixed(1)}%`}
           </div>
-          <p className="text-[11px] text-slate-400">월말 예산 소진 등 트래픽/구매 변동률</p>
+          <p className="text-[11px] text-slate-400">월 중순 대비 월말 일평균 차이 (요일 효과 제거)</p>
         </div>
 
         {/* 3. Spring Season */}
@@ -116,7 +116,7 @@ export default function SeasonalityChart({ mmmResult }) {
           <div className="text-xl font-extrabold text-pink-400 mb-1">
             {safeNum(springEffectRatio) >= 0 ? `+${safeNum(springEffectRatio).toFixed(1)}%` : `${safeNum(springEffectRatio).toFixed(1)}%`}
           </div>
-          <p className="text-[11px] text-slate-400">봄철 트렌드 변동 지수</p>
+          <p className="text-[11px] text-slate-400">봄철 기저선 수준 (전체 평균 대비)</p>
         </div>
 
         {/* 4. Summer Season */}
@@ -132,7 +132,7 @@ export default function SeasonalityChart({ mmmResult }) {
           <div className="text-xl font-extrabold text-emerald-400 mb-1">
             {safeNum(summerEffectRatio) >= 0 ? `+${safeNum(summerEffectRatio).toFixed(1)}%` : `${safeNum(summerEffectRatio).toFixed(1)}%`}
           </div>
-          <p className="text-[11px] text-slate-400">여름철 트렌드 변동 지수</p>
+          <p className="text-[11px] text-slate-400">여름철 기저선 수준 (전체 평균 대비)</p>
         </div>
 
         {/* 5. Autumn Season */}
@@ -148,7 +148,7 @@ export default function SeasonalityChart({ mmmResult }) {
           <div className="text-xl font-extrabold text-blue-400 mb-1">
             {safeNum(autumnEffectRatio) >= 0 ? `+${safeNum(autumnEffectRatio).toFixed(1)}%` : `${safeNum(autumnEffectRatio).toFixed(1)}%`}
           </div>
-          <p className="text-[11px] text-slate-400">가을철 트렌드 변동 지수</p>
+          <p className="text-[11px] text-slate-400">가을철 기저선 수준 (전체 평균 대비)</p>
         </div>
 
         {/* 6. Winter Season */}
@@ -164,14 +164,14 @@ export default function SeasonalityChart({ mmmResult }) {
           <div className="text-xl font-extrabold text-cyan-400 mb-1">
             {safeNum(winterEffectRatio) >= 0 ? `+${safeNum(winterEffectRatio).toFixed(1)}%` : `${safeNum(winterEffectRatio).toFixed(1)}%`}
           </div>
-          <p className="text-[11px] text-slate-400">겨울철 트렌드 변동 지수</p>
+          <p className="text-[11px] text-slate-400">겨울철 기저선 수준 (전체 평균 대비)</p>
         </div>
 
         </div>
 
       {/* Analyst Seasonality Insight */}
       <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-200 leading-relaxed">
-        <span className="font-bold text-purple-300">💡 마케터 시즈널리티 가이드:</span> 주말(토/일) 구간에서 자연 {kpiTerms.name}이 <span className="font-bold text-white">+{Math.abs(safeNum(weekendEffectRatio)).toFixed(1)}%</span> 상승(평일 대비)하므로, 전환율이 높아지는 주말을 겨냥해 목요일/금요일에 매체 예산을 선제적으로 증액하는 미디어 매싱 전략이 유효합니다.
+        <span className="font-bold text-purple-300">💡 마케터 시즈널리티 가이드:</span> 주말(토/일) {kpiTerms.name}이 평일보다 <span className="font-bold text-white">{safeNum(weekendEffectRatio) >= 0 ? '+' : ''}{safeNum(weekendEffectRatio).toFixed(1)}%</span> 다릅니다. 모델은 주 단위라 요일별 광고 효과 차이는 추정하지 않으므로, 요일별 예산 배분은 광고 플랫폼의 요일 리포트와 함께 판단하세요.
       </div>
 
     </div>
